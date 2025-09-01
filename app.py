@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 from notion_client import Client
-from flask import request, jsonify
-import requests
 import os
 import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
+import sendgrid
+from sendgrid.helpers.mail import Mail
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,25 +17,24 @@ openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 notion = Client(auth=os.getenv('NOTION_API_KEY'))
 notion_database_id = os.getenv('NOTION_DATABASE_ID')
 
+# Initialize SendGrid only if API key is available
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY) if SENDGRID_API_KEY else None
+
 app = Flask(__name__)
 
 # Helper function to extract JSON from markdown code blocks
 def extract_json_from_markdown(text):
-    # Pattern to match JSON code blocks
     pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
     matches = re.findall(pattern, text)
     
     if matches:
-        # Return the first JSON code block content
         return matches[0].strip()
-    else:
-        # If no code blocks found, return the original text
-        return text
+    return text
 
 # Helper function to format action items and questions for Notion
 def format_for_notion(data):
     if isinstance(data, list):
-        # Handle list of action items with owners
         if data and isinstance(data[0], dict) and 'action' in data[0]:
             formatted_text = ""
             for item in data:
@@ -46,18 +45,48 @@ def format_for_notion(data):
                 else:
                     formatted_text += f"• {action}\n"
             return formatted_text.strip()
-        # Handle list of questions
         elif data and isinstance(data[0], str):
             return "\n".join([f"• {question}" for question in data])
-        # Handle other lists
-        else:
-            return "\n".join([f"• {str(item)}" for item in data])
+        return "\n".join([f"• {str(item)}" for item in data])
     elif isinstance(data, dict):
-        # Handle dictionary responses by converting to string
         return json.dumps(data, indent=2)
-    else:
-        # Return as-is if it's already a string
-        return str(data)
+    return str(data)
+
+# Email sending function
+def send_email_via_sendgrid(meeting_name, summary, action_items, key_questions, notion_url):
+    try:
+        if not sg:
+            return False, "SendGrid not configured"
+            
+        # Format email content
+        email_content = f"""
+        <h2>New Meeting Summary: {meeting_name}</h2>
+        <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
+        <p><strong>Action Items:</strong></p>
+        <ul>{"".join([f'<li>{item}</li>' for item in action_items.split(chr(10)) if item.strip()])}</ul>
+        <p><strong>Key Questions:</strong></p>
+        <ul>{"".join([f'<li>{q}</li>' for q in key_questions.split(chr(10)) if q.strip()])}</ul>
+        <p><strong>View in Notion:</strong> <a href="{notion_url}">{notion_url}</a></p>
+        """
+
+        # Create and send email
+        from_email = os.getenv('SENDER_EMAIL')
+        to_email = os.getenv('TEAM_LEAD_EMAIL')
+        
+        if not from_email or not to_email:
+            return False, "Email configuration missing"
+        
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject=f'Meeting Summary: {meeting_name}',
+            html_content=email_content
+        )
+        
+        response = sg.send(message)
+        return True, f"Email sent successfully. Status code: {response.status_code}"
+    except Exception as e:
+        return False, f"Failed to send email: {str(e)}"
 
 # This route serves the frontend HTML page
 @app.route('/')
@@ -97,28 +126,22 @@ def summarize():
 
         # 3. Call the OpenAI API
         response = openai_client.chat.completions.create(
-            model="gpt-4-turbo",  # Use a model you have access to
+            model="gpt-4-turbo",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2  # Low temperature for more factual, less creative output
+            temperature=0.2
         )
 
         # 4. Parse the AI's response
         ai_content = response.choices[0].message.content
         
-        # Debug: Print the raw AI response
-        print(f"Raw AI response: {ai_content}")
-        
         # Extract JSON from markdown code blocks if present
         cleaned_content = extract_json_from_markdown(ai_content)
-        print(f"Cleaned content: {cleaned_content}")
         
         # The AI should return a JSON string. We need to convert it to a Python dict.
         try:
             summary_data = json.loads(cleaned_content)
-            print(f"Parsed summary data: {summary_data}")
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             # Fallback if the AI doesn't return valid JSON
-            print(f"JSON decode error: {e}")
             summary_data = {
                 "summary": ai_content,
                 "action_items": "Could not parse action items.",
@@ -126,13 +149,9 @@ def summarize():
             }
 
         # 5. Format data for Notion API compatibility
-        # Ensure all values are properly formatted strings
         summary_str = format_for_notion(summary_data.get('summary', ''))
         action_items_str = format_for_notion(summary_data.get('action_items', ''))
         key_questions_str = format_for_notion(summary_data.get('key_questions', ''))
-        
-        print(f"Formatted action items: {action_items_str}")
-        print(f"Formatted key questions: {key_questions_str}")
 
         # 6. Save the structured data to Notion
         new_page = notion.pages.create(
@@ -142,29 +161,83 @@ def summarize():
                 "Summary": {"rich_text": [{"text": {"content": summary_str}}]},
                 "Action Items": {"rich_text": [{"text": {"content": action_items_str}}]},
                 "Key Questions": {"rich_text": [{"text": {"content": key_questions_str}}]},
-                "Date": {"date": {"start": datetime.now().isoformat()[:10]}}  # Today's date
+                "Date": {"date": {"start": datetime.now().isoformat()[:10]}},
+                "Sent": {"checkbox": False}  # This will now work since you added the property
             }
         )
 
-        # 7. Send success back to the frontend
-        # Handle potential missing 'url' key in Notion response
+        # Get the URL of the new Notion page
         notion_url = new_page.get("url", "No URL available")
+
+        # 7. Send email to team lead
+        email_success, email_message = send_email_via_sendgrid(
+            meeting_name, summary_str, action_items_str, key_questions_str, notion_url
+        )
         
+        # Update Notion page with email status
+        if email_success:
+            notion.pages.update(
+                page_id=new_page["id"],
+                properties={"Sent": {"checkbox": True}}
+            )
+
+        # 8. Send success back to the frontend
         return jsonify({
             "message": "Summary created successfully!",
-            "notion_url": notion_url
+            "notion_url": notion_url,
+            "email_sent": email_success,
+            "email_message": email_message
         })
 
     except Exception as e:
-        print(f"Error in /summarize: {str(e)}")  # Log the error for debugging
+        print(f"Error in /summarize: {str(e)}")
         import traceback
-        traceback.print_exc()  # Print full traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-#if __name__ == '__main__':
-#    app.run(debug=True)
+# New endpoint to manually trigger email sending for a Notion page
+@app.route('/api/email-notion-summary', methods=['POST'])
+def email_notion_summary():
+    try:
+        data = request.get_json()
+        page_id = data.get('page_id')
+        
+        if not page_id:
+            return jsonify({'error': 'No page_id provided'}), 400
+        
+        # Get the page from Notion
+        page = notion.pages.retrieve(page_id=page_id)
+        
+        # Extract properties with error handling
+        meeting_name = page.properties["Meeting Name"].title[0].text.content if page.properties["Meeting Name"].title else "No Title"
+        summary = page.properties["Summary"].rich_text[0].text.content if page.properties["Summary"].rich_text else "No summary"
+        action_items = page.properties["Action Items"].rich_text[0].text.content if page.properties["Action Items"].rich_text else "No action items"
+        key_questions = page.properties["Key Questions"].rich_text[0].text.content if page.properties["Key Questions"].rich_text else "No key questions"
+        notion_url = page.url
+        
+        # Send email
+        email_success, email_message = send_email_via_sendgrid(
+            meeting_name, summary, action_items, key_questions, notion_url
+        )
+        
+        # Update Notion page with email status
+        if email_success:
+            notion.pages.update(
+                page_id=page_id,
+                properties={"Sent": {"checkbox": True}}
+            )
+        
+        return jsonify({
+            "success": email_success,
+            "message": email_message
+        })
+        
+    except Exception as e:
+        print(f"Error in /api/email-notion-summary: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    # Get port from environment variable or default to 5000
     port = int(os.environ.get("PORT", 5000))
-    # Run on all available interfaces (0.0.0.0) instead of localhost only
-    app.run(host='0.0.0.0', port=port, debug=False)  # Set debug=False for production
+    app.run(host='0.0.0.0', port=port, debug=False)

@@ -2,3 +2,4 @@ flask
 openai
 notion-client
 python-dotenv
+sendgrid>=6.12.4
