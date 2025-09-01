@@ -1,0 +1,10 @@
+CNAME	em2273.infantbloom.net	u55708389.wl140.sendgrid.net	
+
+
+CNAME	s1._domainkey.infantbloom.net	s1.domainkey.u55708389.wl140.sendgrid.net	
+
+
+CNAME	s2._domainkey.infantbloom.net	s2.domainkey.u55708389.wl140.sendgrid.net	
+
+
+TXT	_dmarc.infantbloom.net	v=DMARC1; p=none;

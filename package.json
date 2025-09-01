@@ -1,0 +1,16 @@
+{
+  "name": "notion-email-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@notionhq/client": "^4.0.2",
+    "@sendgrid/mail": "^8.1.5"
+  }
+}
