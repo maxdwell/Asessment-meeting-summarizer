@@ -5,7 +5,8 @@ import sgMail from "@sendgrid/mail";
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-export default async function (req, res) {
+// Railway functions need to export a handler that takes a Request and returns a Response
+export default async function (request) {
   try {
     // 1. Query the Notion database for unsent summaries
     const response = await notion.databases.query({
@@ -59,13 +60,29 @@ export default async function (req, res) {
     }
 
     // 6. Return success response
-    res.json({ message: `Successfully processed ${newPages.length} meeting summaries.` });
+    return new Response(
+      JSON.stringify({ message: `Successfully processed ${newPages.length} meeting summaries.` }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
   } catch (error) {
     console.error("Function error details:", error);
-    res.status(500).json({ 
-      error: "Internal server error", 
-      details: error.message 
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: "Internal server error", 
+        details: error.message 
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
 }

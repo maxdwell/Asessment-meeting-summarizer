@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 from notion_client import Client
+from flask import request, jsonify
+import requests
 import os
 import json
 import re
