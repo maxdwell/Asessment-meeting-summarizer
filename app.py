@@ -6,7 +6,7 @@ import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
-from mailersend import emails
+from mailersend import Email
 from werkzeug.exceptions import BadRequest
 
 # Load environment variables from .env file
