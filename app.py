@@ -58,7 +58,7 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
             return False, "MailerSend not configured"
             
         # Initialize MailerSend
-        mailer = emails.NewEmail(MAILERSEND_API_KEY)
+        mailer = Email.NewEmail(MAILERSEND_API_KEY)
         
         # Define mail_from and recipients
         mail_from = {
