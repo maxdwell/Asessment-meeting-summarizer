@@ -196,8 +196,8 @@ def summarize():
         return jsonify({'error': str(e)}), 500
 
 # New endpoint to manually trigger email sending for a Notion page
-@app.route('/api/email-notion-summary', methods=['POST'])
-@app.route('/functions/email-notion-summary', methods=['POST'])
+@app.route('/api/email-notion-summary', methods=['GET', 'POST'])
+@app.route('/functions/email-notion-summary', methods=['GET', 'POST'])
 
 def email_notion_summary():
     try:
