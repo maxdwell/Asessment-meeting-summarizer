@@ -6,7 +6,7 @@ import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
-from mailersend import Email
+from mailersend import emails  # Changed import
 from werkzeug.exceptions import BadRequest
 
 # Load environment variables from .env file
@@ -57,8 +57,8 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         if not MAILERSEND_API_KEY:
             return False, "MailerSend not configured"
             
-        # Initialize MailerSend
-        mailer = Email.NewEmail(MAILERSEND_API_KEY)
+        # Initialize MailerSend - CORRECTED
+        mailer = emails.NewEmail(MAILERSEND_API_KEY)  # Pass API key directly
         
         # Define mail_from and recipients
         mail_from = {
@@ -99,7 +99,7 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         View in Notion: {notion_url}
         """
 
-        # Set up email
+        # Set up email - CORRECTED approach
         mail_body = {}
         mailer.set_mail_from(mail_from, mail_body)
         mailer.set_mail_to(recipients, mail_body)
@@ -113,6 +113,8 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         
     except Exception as e:
         return False, f"Failed to send email: {str(e)}"
+
+# ... (rest of your Flask routes remain the same)
 
 # This route serves the frontend HTML page
 @app.route('/')
