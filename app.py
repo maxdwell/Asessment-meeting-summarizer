@@ -6,7 +6,8 @@ import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
-from mailersend import emails  # Changed import
+from mailersend import MailerSendClient, EmailBuilder
+from mailersend.exceptions import MailerSendError
 from werkzeug.exceptions import BadRequest
 
 # Load environment variables from .env file
@@ -26,7 +27,6 @@ app = Flask(__name__)
 def extract_json_from_markdown(text):
     pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
     matches = re.findall(pattern, text)
-    
     if matches:
         return matches[0].strip()
     return text
@@ -51,26 +51,14 @@ def format_for_notion(data):
         return json.dumps(data, indent=2)
     return str(data)
 
-# Email sending function using MailerSend
+# Email sending function using MailerSend v2.x
 def send_email_via_mailersend(meeting_name, summary, action_items, key_questions, notion_url):
     try:
         if not MAILERSEND_API_KEY:
             return False, "MailerSend not configured"
-            
-        # Initialize MailerSend - CORRECTED
-        mailer = emails.NewEmail(MAILERSEND_API_KEY)  # Pass API key directly
-        
-        # Define mail_from and recipients
-        mail_from = {
-            "name": "AI Meeting Summarizer",
-            "email": os.getenv('SENDER_EMAIL'),
-        }
-        recipients = [
-            {
-                "name": "Team Lead",
-                "email": os.getenv('TEAM_LEAD_EMAIL'),
-            }
-        ]
+
+        # Initialize MailerSend client
+        ms = MailerSendClient(api_key=MAILERSEND_API_KEY)
 
         # Format email content
         html_content = f"""
@@ -83,38 +71,40 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         <p><strong>View in Notion:</strong> <a href="{notion_url}">{notion_url}</a></p>
         """
 
-        # Create plain text version
         plain_text_content = f"""
         New Meeting Summary: {meeting_name}
-        
+
         Summary:
         {summary}
-        
+
         Action Items:
         {action_items}
-        
+
         Key Questions:
         {key_questions}
-        
+
         View in Notion: {notion_url}
         """
 
-        # Set up email - CORRECTED approach
-        mail_body = {}
-        mailer.set_mail_from(mail_from, mail_body)
-        mailer.set_mail_to(recipients, mail_body)
-        mailer.set_subject(f"Meeting Summary: {meeting_name}", mail_body)
-        mailer.set_html_content(html_content, mail_body)
-        mailer.set_plaintext_content(plain_text_content, mail_body)
+        # Build email using EmailBuilder
+        email = (
+            EmailBuilder()
+            .from_email(os.getenv("SENDER_EMAIL"), "AI Meeting Summarizer")
+            .to_many([{"email": os.getenv("TEAM_LEAD_EMAIL"), "name": "Team Lead"}])
+            .subject(f"Meeting Summary: {meeting_name}")
+            .html(html_content)
+            .text(plain_text_content)
+            .build()
+        )
 
         # Send email
-        response = mailer.send(mail_body)
-        return True, "Email sent successfully via MailerSend!"
-        
-    except Exception as e:
-        return False, f"Failed to send email: {str(e)}"
+        response = ms.emails.send(email)
+        return True, f"Email sent successfully! Status code: {response.status_code}"
 
-# ... (rest of your Flask routes remain the same)
+    except MailerSendError as e:
+        return False, f"MailerSend API Error: {e} (status {e.status_code}, details {e.details})"
+    except Exception as e:
+        return False, f"Unexpected error: {str(e)}"
 
 # This route serves the frontend HTML page
 @app.route('/')
@@ -129,7 +119,7 @@ def summarize():
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
-            
+
         transcript = data.get('transcript', '')
         meeting_name = data.get('meetingName', 'Untitled Meeting')
 
@@ -164,27 +154,25 @@ def summarize():
 
         # 4. Parse the AI's response
         ai_content = response.choices[0].message.content
-        
+
         # Extract JSON from markdown code blocks if present
         cleaned_content = extract_json_from_markdown(ai_content)
-        
-        # The AI should return a JSON string. We need to convert it to a Python dict.
+
         try:
             summary_data = json.loads(cleaned_content)
         except json.JSONDecodeError:
-            # Fallback if the AI doesn't return valid JSON
             summary_data = {
                 "summary": ai_content,
                 "action_items": "Could not parse action items.",
                 "key_questions": "Could not parse key questions."
             }
 
-        # 5. Format data for Notion API compatibility
+        # 5. Format data for Notion
         summary_str = format_for_notion(summary_data.get('summary', ''))
         action_items_str = format_for_notion(summary_data.get('action_items', ''))
         key_questions_str = format_for_notion(summary_data.get('key_questions', ''))
 
-        # 6. Save the structured data to Notion
+        # 6. Save structured data to Notion
         new_page = notion.pages.create(
             parent={"database_id": notion_database_id},
             properties={
@@ -197,22 +185,19 @@ def summarize():
             }
         )
 
-        # Get the URL of the new Notion page
         notion_url = new_page.get("url", "No URL available")
 
-        # 7. Send email to team lead
+        # 7. Send email
         email_success, email_message = send_email_via_mailersend(
             meeting_name, summary_str, action_items_str, key_questions_str, notion_url
         )
-        
-        # Update Notion page with email status
+
         if email_success:
             notion.pages.update(
                 page_id=new_page["id"],
                 properties={"Sent": {"checkbox": True}}
             )
 
-        # 8. Send success back to the frontend
         return jsonify({
             "message": "Summary created successfully!",
             "notion_url": notion_url,
@@ -221,72 +206,61 @@ def summarize():
         })
 
     except Exception as e:
-        print(f"Error in /summarize: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# New endpoint to manually trigger email sending for a Notion page
+# Endpoint to manually trigger email sending for a Notion page
 @app.route('/api/email-notion-summary', methods=['POST'])
 def email_notion_summary():
     try:
-        # Check if request contains JSON data
         if not request.data:
             return jsonify({'error': 'No data provided in request'}), 400
-            
-        # Try to parse JSON data
+
         try:
             data = request.get_json()
         except BadRequest:
             return jsonify({'error': 'Invalid JSON data'}), 400
-            
+
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
-            
+
         page_id = data.get('page_id')
-        
         if not page_id:
             return jsonify({'error': 'No page_id provided'}), 400
-        
-        # Get the page from Notion
+
         page = notion.pages.retrieve(page_id=page_id)
-        
-        # Extract properties with error handling - FIXED: Use dictionary access
         properties = page.get('properties', {})
-        
+
         meeting_name = properties.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
         summary = properties.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
         action_items = properties.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
         key_questions = properties.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
         notion_url = page.get('url', 'No URL available')
-        
-        # Send email
+
         email_success, email_message = send_email_via_mailersend(
             meeting_name, summary, action_items, key_questions, notion_url
         )
-        
-        # Update Notion page with email status
+
         if email_success:
             notion.pages.update(
                 page_id=page_id,
                 properties={"Sent": {"checkbox": True}}
             )
-        
+
         return jsonify({
             "success": email_success,
             "message": email_message
         })
-        
+
     except Exception as e:
-        print(f"Error in /api/email-notion-summary: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# Add this right after your existing email_notion_summary function
+# Shortcut endpoint
 @app.route('/functions/email-notion-summary', methods=['POST'])
 def functions_email_notion_summary():
-    # Simply call your existing function
     return email_notion_summary()
 
 if __name__ == '__main__':
