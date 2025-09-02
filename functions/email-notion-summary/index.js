@@ -1,18 +1,16 @@
 import { Client } from "@notionhq/client";
-import sgMail from "@sendgrid/mail";
+import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 
-// Initialize clients using Railway's environment variables
+// Initialize clients
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const mailersend = new MailerSend({ apiKey: process.env.MAILERSEND_API_KEY });
 
-// Railway functions need to export a handler that takes a Request and returns a Response
 export default async function (request) {
   try {
-    // 1. Query the Notion database for unsent summaries
     const response = await notion.databases.query({
       database_id: process.env.NOTION_DATABASE_ID,
       filter: {
-        property: "Sent", // Ensure this checkbox property exists in your DB
+        property: "Sent",
         checkbox: {
           equals: false,
         },
@@ -21,15 +19,12 @@ export default async function (request) {
 
     const newPages = response.results;
 
-    // 2. Process each new page
     for (const page of newPages) {
-      // Extract properties (add error handling for missing fields)
       const meetingName = page.properties["Meeting Name"]?.title[0]?.text?.content || "No Title";
       const summary = page.properties["Summary"]?.rich_text[0]?.text?.content || "No summary provided.";
       const actionItems = page.properties["Action Items"]?.rich_text[0]?.text?.content || "No action items.";
       const keyQuestions = page.properties["Key Questions"]?.rich_text[0]?.text?.content || "No key questions.";
 
-      // 3. Format the email content
       const emailHtml = `
         <h2>New Meeting Summary: ${meetingName}</h2>
         <p><strong>Summary:</strong><br>${summary.replace(/\n/g, '<br>')}</p>
@@ -40,17 +35,18 @@ export default async function (request) {
         <p><strong>View in Notion:</strong> <a href="${page.url}">${page.url}</a></p>
       `;
 
-      // 4. Send email via SendGrid
-      const msg = {
-        to: process.env.TEAM_LEAD_EMAIL, // Single recipient
-        from: process.env.SENDER_EMAIL, // Your verified SendGrid sender
-        subject: `Meeting Summary: ${meetingName}`,
-        html: emailHtml,
-      };
+      // MailerSend email configuration
+      const sentFrom = new Sender(process.env.SENDER_EMAIL, "Meeting Summary Bot");
+      const recipients = [new Recipient(process.env.TEAM_LEAD_EMAIL, "Team Lead")];
 
-      await sgMail.send(msg);
+      const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setSubject(`Meeting Summary: ${meetingName}`)
+        .setHtml(emailHtml);
 
-      // 5. Mark page as sent in Notion
+      await mailersend.email.send(emailParams);
+
       await notion.pages.update({
         page_id: page.id,
         properties: {
@@ -59,14 +55,11 @@ export default async function (request) {
       });
     }
 
-    // 6. Return success response
     return new Response(
       JSON.stringify({ message: `Successfully processed ${newPages.length} meeting summaries.` }),
       {
         status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       }
     );
 
@@ -79,9 +72,7 @@ export default async function (request) {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       }
     );
   }
