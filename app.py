@@ -201,7 +201,6 @@ def summarize():
 
 # New endpoint to manually trigger email sending for a Notion page
 @app.route('/api/email-notion-summary', methods=['POST'])
-@app.route('/functions/email-notion-summary', methods=['POST'])
 def email_notion_summary():
     try:
         # Check if request contains JSON data
@@ -254,6 +253,12 @@ def email_notion_summary():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+# Add this right after your existing email_notion_summary function
+@app.route('/functions/email-notion-summary', methods=['POST'])
+def functions_email_notion_summary():
+    # Simply call your existing function
+    return email_notion_summary()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
