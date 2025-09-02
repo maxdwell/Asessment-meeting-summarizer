@@ -224,12 +224,14 @@ def email_notion_summary():
         # Get the page from Notion
         page = notion.pages.retrieve(page_id=page_id)
         
-        # Extract properties with error handling
-        meeting_name = page.properties["Meeting Name"].title[0].text.content if page.properties["Meeting Name"].title else "No Title"
-        summary = page.properties["Summary"].rich_text[0].text.content if page.properties["Summary"].rich_text else "No summary"
-        action_items = page.properties["Action Items"].rich_text[0].text.content if page.properties["Action Items"].rich_text else "No action items"
-        key_questions = page.properties["Key Questions"].rich_text[0].text.content if page.properties["Key Questions"].rich_text else "No key questions"
-        notion_url = page.url
+        # Extract properties with error handling - FIXED: Use dictionary access
+        properties = page.get('properties', {})
+        
+        meeting_name = properties.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
+        summary = properties.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
+        action_items = properties.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
+        key_questions = properties.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
+        notion_url = page.get('url', 'No URL available')
         
         # Send email
         email_success, email_message = send_email_via_sendgrid(

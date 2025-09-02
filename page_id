@@ -1,0 +1,23 @@
+import requests
+import json
+from notion_client import Client
+
+url = "https://asessment-meeting-summarizer-production.up.railway.app/api/email-notion-summary"
+headers = {"Content-Type": "application/json"}
+notion = Client(auth="ntn_ov1446093507VfC223QlPkTmZIP8fRRtXBts9TnpZ307Ao")
+database_id = "2600089e9046800782ffc62e47b9da86"  # Remove hyphens for API calls
+
+
+response = notion.databases.query(database_id=database_id)
+print(response)
+
+
+import requests
+import json
+
+url = "https://asessment-meeting-summarizer-production.up.railway.app/api/email-notion-summary"
+headers = {"Content-Type": "application/json"}
+data = {"page_id": "2620089e-9046-8182-a372-e63ad89eb633"}  # Use a page ID from your results
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())
