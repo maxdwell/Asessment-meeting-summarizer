@@ -9,8 +9,11 @@ from datetime import datetime
 from mailersend import MailerSendClient, EmailBuilder
 from mailersend.exceptions import MailerSendError
 from werkzeug.exceptions import BadRequest
+import logging
 
-# Load environment variables from .env file
+# -----------------------------------------------------
+# Load environment variables
+# -----------------------------------------------------
 load_dotenv()
 
 # Initialize APIs
@@ -18,21 +21,30 @@ openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 notion = Client(auth=os.getenv('NOTION_API_KEY'))
 notion_database_id = os.getenv('NOTION_DATABASE_ID')
 
-# Initialize MailerSend API key
+# MailerSend Config (hard-coded verified sender)
 MAILERSEND_API_KEY = os.getenv('MAILERSEND_API_KEY')
+MAILERSEND_VERIFIED_SENDER = "Maxdwell@hotmail.com"  # Verified sender email
+MAILERSEND_SMTP_USER = "MS_MX2KCb@test-zkq340exr92gd796.mlsender.net"
 
+# Flask setup
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# Helper function to extract JSON from markdown code blocks
+
+# -----------------------------------------------------
+# Helper functions
+# -----------------------------------------------------
 def extract_json_from_markdown(text):
+    """Extract JSON from markdown code blocks if present."""
     pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
     matches = re.findall(pattern, text)
     if matches:
         return matches[0].strip()
     return text
 
-# Helper function to format action items and questions for Notion
+
 def format_for_notion(data):
+    """Format summaries, action items, or questions for Notion."""
     if isinstance(data, list):
         if data and isinstance(data[0], dict) and 'action' in data[0]:
             formatted_text = ""
@@ -51,18 +63,20 @@ def format_for_notion(data):
         return json.dumps(data, indent=2)
     return str(data)
 
-# Email sending function using MailerSend v2.x
+
+# -----------------------------------------------------
+# MailerSend email function
+# -----------------------------------------------------
 def send_email_via_mailersend(meeting_name, summary, action_items, key_questions, notion_url):
     try:
         if not MAILERSEND_API_KEY:
             return False, "MailerSend not configured"
 
-        # Initialize MailerSend client
         ms = MailerSendClient(api_key=MAILERSEND_API_KEY)
 
-        # Format email content
+        # Build email content
         html_content = f"""
-        <h2>New Meeting Summary: {meeting_name}</h2>
+        <h2>Meeting Summary: {meeting_name}</h2>
         <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
         <p><strong>Action Items:</strong></p>
         <ul>{"".join([f'<li>{item}</li>' for item in action_items.split(chr(10)) if item.strip()])}</ul>
@@ -72,7 +86,7 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         """
 
         plain_text_content = f"""
-        New Meeting Summary: {meeting_name}
+        Meeting Summary: {meeting_name}
 
         Summary:
         {summary}
@@ -86,36 +100,38 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         View in Notion: {notion_url}
         """
 
-        # Build email using EmailBuilder
+        # Build email
         email = (
             EmailBuilder()
-            .from_email(os.getenv("SENDER_EMAIL"), "AI Meeting Summarizer")
-            .to_many([{"email": os.getenv("TEAM_LEAD_EMAIL"), "name": "Team Lead"}])
+            .from_email(MAILERSEND_VERIFIED_SENDER, "AI Meeting Summarizer")
+            .to_many([{"email": MAILERSEND_VERIFIED_SENDER, "name": "Demo User"}])  # trial accounts restriction
             .subject(f"Meeting Summary: {meeting_name}")
             .html(html_content)
             .text(plain_text_content)
             .build()
         )
 
-        # Send email
+        # Send
         response = ms.emails.send(email)
-        return True, f"Email sent successfully! Status code: {response.status_code}"
+        return True, f"Email sent successfully (status {response.status_code})"
 
     except MailerSendError as e:
-        return False, f"MailerSend API Error: {e} (status {e.status_code}, details {e.details})"
+        return False, f"MailerSend API Error: {str(e)}"
     except Exception as e:
         return False, f"Unexpected error: {str(e)}"
 
-# This route serves the frontend HTML page
+
+# -----------------------------------------------------
+# Routes
+# -----------------------------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# This is the API endpoint that does the magic
+
 @app.route('/summarize', methods=['POST'])
 def summarize():
     try:
-        # 1. Get the transcript from the user's request
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
@@ -126,36 +142,25 @@ def summarize():
         if not transcript:
             return jsonify({'error': 'No transcript provided'}), 400
 
-        # 2. Craft the prompt for OpenAI
+        # OpenAI request
         prompt = f"""
-        Please analyze the following meeting transcript and extract the following information:
+        Please analyze the following meeting transcript and extract:
+        - A concise summary.
+        - Action items with owners.
+        - Key questions unresolved.
 
-        - A concise summary of the main points and decisions made.
-        - A list of clear action items, specifying the owner if mentioned.
-        - A list of key questions that were raised but not resolved.
-
-        Format the output as a JSON object with exactly these three keys: "summary", "action_items", "key_questions".
-
-        For action_items, please provide an array of objects, each with "action" and "owner" fields.
-        For key_questions, please provide an array of strings.
-
-        Please provide only the JSON object without any additional text or markdown formatting.
+        Format as JSON with keys: summary, action_items, key_questions.
 
         Transcript:
         {transcript}
         """
-
-        # 3. Call the OpenAI API
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2
         )
 
-        # 4. Parse the AI's response
         ai_content = response.choices[0].message.content
-
-        # Extract JSON from markdown code blocks if present
         cleaned_content = extract_json_from_markdown(ai_content)
 
         try:
@@ -167,12 +172,11 @@ def summarize():
                 "key_questions": "Could not parse key questions."
             }
 
-        # 5. Format data for Notion
         summary_str = format_for_notion(summary_data.get('summary', ''))
         action_items_str = format_for_notion(summary_data.get('action_items', ''))
         key_questions_str = format_for_notion(summary_data.get('key_questions', ''))
 
-        # 6. Save structured data to Notion
+        # Save to Notion
         new_page = notion.pages.create(
             parent={"database_id": notion_database_id},
             properties={
@@ -187,7 +191,7 @@ def summarize():
 
         notion_url = new_page.get("url", "No URL available")
 
-        # 7. Send email
+        # Send email
         email_success, email_message = send_email_via_mailersend(
             meeting_name, summary_str, action_items_str, key_questions_str, notion_url
         )
@@ -210,32 +214,22 @@ def summarize():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# Endpoint to manually trigger email sending for a Notion page
+
 @app.route('/api/email-notion-summary', methods=['POST'])
 def email_notion_summary():
     try:
-        if not request.data:
-            return jsonify({'error': 'No data provided in request'}), 400
-
-        try:
-            data = request.get_json()
-        except BadRequest:
-            return jsonify({'error': 'Invalid JSON data'}), 400
-
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-
+        data = request.get_json(force=True)
         page_id = data.get('page_id')
         if not page_id:
             return jsonify({'error': 'No page_id provided'}), 400
 
         page = notion.pages.retrieve(page_id=page_id)
-        properties = page.get('properties', {})
+        props = page.get('properties', {})
 
-        meeting_name = properties.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
-        summary = properties.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
-        action_items = properties.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
-        key_questions = properties.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
+        meeting_name = props.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
+        summary = props.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
+        action_items = props.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
+        key_questions = props.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
         notion_url = page.get('url', 'No URL available')
 
         email_success, email_message = send_email_via_mailersend(
@@ -248,21 +242,22 @@ def email_notion_summary():
                 properties={"Sent": {"checkbox": True}}
             )
 
-        return jsonify({
-            "success": email_success,
-            "message": email_message
-        })
+        return jsonify({"success": email_success, "message": email_message})
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# Shortcut endpoint
+
 @app.route('/functions/email-notion-summary', methods=['POST'])
 def functions_email_notion_summary():
     return email_notion_summary()
 
+
+# -----------------------------------------------------
+# Entrypoint
+# -----------------------------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
