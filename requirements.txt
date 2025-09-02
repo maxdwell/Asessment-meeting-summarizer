@@ -2,4 +2,5 @@ flask
 openai
 notion-client
 python-dotenv
-sendgrid>=6.12.4
+mailersend
+python-dotenv

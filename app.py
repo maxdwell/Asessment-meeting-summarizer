@@ -6,8 +6,7 @@ import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
-import sendgrid
-from sendgrid.helpers.mail import Mail
+from mailersend import Email
 from werkzeug.exceptions import BadRequest
 
 # Load environment variables from .env file
@@ -18,9 +17,8 @@ openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 notion = Client(auth=os.getenv('NOTION_API_KEY'))
 notion_database_id = os.getenv('NOTION_DATABASE_ID')
 
-# Initialize SendGrid only if API key is available
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY) if SENDGRID_API_KEY else None
+# Initialize MailerSend API key
+MAILERSEND_API_KEY = os.getenv('MAILERSEND_API_KEY')
 
 app = Flask(__name__)
 
@@ -53,14 +51,29 @@ def format_for_notion(data):
         return json.dumps(data, indent=2)
     return str(data)
 
-# Email sending function
-def send_email_via_sendgrid(meeting_name, summary, action_items, key_questions, notion_url):
+# Email sending function using MailerSend
+def send_email_via_mailersend(meeting_name, summary, action_items, key_questions, notion_url):
     try:
-        if not sg:
-            return False, "SendGrid not configured"
+        if not MAILERSEND_API_KEY:
+            return False, "MailerSend not configured"
             
+        # Initialize MailerSend
+        mailer = emails.NewEmail(MAILERSEND_API_KEY)
+        
+        # Define mail_from and recipients
+        mail_from = {
+            "name": "AI Meeting Summarizer",
+            "email": os.getenv('SENDER_EMAIL'),
+        }
+        recipients = [
+            {
+                "name": "Team Lead",
+                "email": os.getenv('TEAM_LEAD_EMAIL'),
+            }
+        ]
+
         # Format email content
-        email_content = f"""
+        html_content = f"""
         <h2>New Meeting Summary: {meeting_name}</h2>
         <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
         <p><strong>Action Items:</strong></p>
@@ -70,22 +83,34 @@ def send_email_via_sendgrid(meeting_name, summary, action_items, key_questions, 
         <p><strong>View in Notion:</strong> <a href="{notion_url}">{notion_url}</a></p>
         """
 
-        # Create and send email
-        from_email = os.getenv('SENDER_EMAIL')
-        to_email = os.getenv('TEAM_LEAD_EMAIL')
+        # Create plain text version
+        plain_text_content = f"""
+        New Meeting Summary: {meeting_name}
         
-        if not from_email or not to_email:
-            return False, "Email configuration missing"
+        Summary:
+        {summary}
         
-        message = Mail(
-            from_email=from_email,
-            to_emails=to_email,
-            subject=f'Meeting Summary: {meeting_name}',
-            html_content=email_content
-        )
+        Action Items:
+        {action_items}
         
-        response = sg.send(message)
-        return True, f"Email sent successfully. Status code: {response.status_code}"
+        Key Questions:
+        {key_questions}
+        
+        View in Notion: {notion_url}
+        """
+
+        # Set up email
+        mail_body = {}
+        mailer.set_mail_from(mail_from, mail_body)
+        mailer.set_mail_to(recipients, mail_body)
+        mailer.set_subject(f"Meeting Summary: {meeting_name}", mail_body)
+        mailer.set_html_content(html_content, mail_body)
+        mailer.set_plaintext_content(plain_text_content, mail_body)
+
+        # Send email
+        response = mailer.send(mail_body)
+        return True, "Email sent successfully via MailerSend!"
+        
     except Exception as e:
         return False, f"Failed to send email: {str(e)}"
 
@@ -174,7 +199,7 @@ def summarize():
         notion_url = new_page.get("url", "No URL available")
 
         # 7. Send email to team lead
-        email_success, email_message = send_email_via_sendgrid(
+        email_success, email_message = send_email_via_mailersend(
             meeting_name, summary_str, action_items_str, key_questions_str, notion_url
         )
         
@@ -234,7 +259,7 @@ def email_notion_summary():
         notion_url = page.get('url', 'No URL available')
         
         # Send email
-        email_success, email_message = send_email_via_sendgrid(
+        email_success, email_message = send_email_via_mailersend(
             meeting_name, summary, action_items, key_questions, notion_url
         )
         
