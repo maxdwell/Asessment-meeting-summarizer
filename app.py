@@ -241,12 +241,15 @@ def summarize():
 @app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
-        # Instead of requiring body, process ALL unsent pages
-        query = {"filter": {"property": "Sent", "checkbox": {"equals": False}}}
+        # Process only a limited number of pages to prevent timeouts
+        query = {
+            "filter": {"property": "Sent", "checkbox": {"equals": False}},
+            "page_size": 5  # Limit to 5 pages per request
+        }
         results = timeout_wrapper(
             notion.databases.query,
             database_id=notion_database_id,
-            filter=query["filter"],
+            **query,
             timeout=20,
         )
 
@@ -286,7 +289,7 @@ def email_notion_summary():
                 )
                 processed += 1
 
-        return jsonify({"message": f"Processed {processed} unsent meeting summaries."}), 200
+        return jsonify({"message": f"Processed {processed} unsent meeting summaries.", "has_more": results.get("has_more", False)}), 200
     except TimeoutError as te:
         logging.error("Timeout: %s", str(te))
         return jsonify({"error": "Operation timed out", "details": str(te)}), 504
