@@ -7,12 +7,11 @@ import concurrent.futures
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template
-from flask_mail import Mail, Message
+from flask_mail import Mail as FlaskMail, Message  # Renamed to avoid conflict
 from openai import OpenAI
 from notion_client import Client
 from dotenv import load_dotenv
-from mailtrap import Mail, MailtrapClient, Address
-
+# Removed the mailtrap import as it's causing conflicts
 # -----------------------------------------------------
 # Load environment variables
 # -----------------------------------------------------
@@ -39,7 +38,7 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAILTRAP_SMTP_PASSWORD")
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USE_SSL"] = False
 
-mail = Mail(app)
+mail = FlaskMail(app)  # Using the renamed FlaskMail class
 MAILTRAP_VERIFIED_SENDER = os.getenv("MAILTRAP_VERIFIED_SENDER")
 
 # -----------------------------------------------------
@@ -85,32 +84,20 @@ def format_for_notion(data):
 def safe_get_text(prop, key_type="rich_text", page_id="unknown", field_name="unknown"):
     """
     Safely extract the first text string from a Notion property.
-    Handles empty arrays and logs warnings.
+    Logs when a property is missing or empty.
     """
     try:
-        if not prop:
-            app.logger.warning(f"[Notion] Missing property '{field_name}' on page {page_id}")
-            return ""
-
-        if key_type in prop:
-            values = prop[key_type]
-            if isinstance(values, list) and len(values) > 0:
-                return values[0].get("text", {}).get("content", "")
-            else:
-                app.logger.warning(
-                    f"[Notion] Empty '{field_name}' (type={key_type}) on page {page_id}"
-                )
-                return ""
+        if key_type in prop and prop[key_type]:
+            return prop[key_type][0].get("text", {}).get("content", "")
         else:
             app.logger.warning(
-                f"[Notion] Property type '{key_type}' not found for field '{field_name}' on page {page_id}"
+                f"[Notion] Missing or empty field '{field_name}' (type={key_type}) on page {page_id}"
             )
-            return ""
     except Exception as e:
         app.logger.error(
-            f"[Notion] Failed extracting '{field_name}' on page {page_id}: {e} | Raw: {prop}"
+            f"[Notion] Failed extracting '{field_name}' (type={key_type}) on page {page_id}: {e} | Raw: {prop}"
         )
-        return ""
+    return ""
 
 def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, page_url):
     try:
@@ -155,6 +142,8 @@ def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, 
     except Exception as e:
         app.logger.error(f"Mailtrap send failed: {e}")
         return False, f"Failed to send email: {str(e)}"
+
+    
 
 # -----------------------------------------------------
 # Routes
@@ -253,6 +242,7 @@ def summarize():
 @app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
+        # Instead of requiring body, process ALL unsent pages
         query = {"filter": {"property": "Sent", "checkbox": {"equals": False}}}
         results = timeout_wrapper(
             notion.databases.query,
@@ -266,10 +256,10 @@ def email_notion_summary():
 
         for page in new_pages:
             props = page.get("properties", {})
-            meeting_name = safe_get_text(props.get("Meeting Name"), "title", page.get("id"), "Meeting Name") or "No Title"
-            summary = safe_get_text(props.get("Summary"), "rich_text", page.get("id"), "Summary") or "No summary"
-            action_items = safe_get_text(props.get("Action Items"), "rich_text", page.get("id"), "Action Items") or "No action items"
-            key_questions = safe_get_text(props.get("Key Questions"), "rich_text", page.get("id"), "Key Questions") or "No key questions"
+            meeting_name = safe_get_text(props.get("Meeting Name", {}), "title") or "No Title"
+            summary = safe_get_text(props.get("Summary", {}), "rich_text") or "No summary"
+            action_items = safe_get_text(props.get("Action Items", {}), "rich_text") or "No action items"
+            key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text") or "No key questions"
             notion_url = page.get("url", "No URL available")
 
             app.logger.info(f"Processing page: {page.get('id')} ({notion_url})")
