@@ -2,5 +2,5 @@ flask
 openai
 notion-client
 python-dotenv
-mailersend
 python-dotenv
+Flask-Mail==0.9.1
