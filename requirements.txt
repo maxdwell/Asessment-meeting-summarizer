@@ -7,3 +7,4 @@ requests
 Werkzeug
 httpx
 Mailtrap
+gunicorn
