@@ -7,11 +7,11 @@ import concurrent.futures
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template
-from flask_mail import Mail as FlaskMail, Message  # Renamed to avoid conflict
+from flask_mail import Mail as FlaskMail, Message
 from openai import OpenAI
 from notion_client import Client
 from dotenv import load_dotenv
-# Removed the mailtrap import as it's causing conflicts
+
 # -----------------------------------------------------
 # Load environment variables
 # -----------------------------------------------------
@@ -38,7 +38,7 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAILTRAP_SMTP_PASSWORD")
 app.config["MAIL_USE_TLS"] = True
 app.config["MAIL_USE_SSL"] = False
 
-mail = FlaskMail(app)  # Using the renamed FlaskMail class
+mail = FlaskMail(app)
 MAILTRAP_VERIFIED_SENDER = os.getenv("MAILTRAP_VERIFIED_SENDER")
 
 # -----------------------------------------------------
@@ -137,13 +137,12 @@ def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, 
         msg.body = plain_text_content
         msg.html = html_content
 
-        timeout_wrapper(mail.send, msg, timeout=15)
+        # Increase timeout for email sending to 30 seconds
+        timeout_wrapper(mail.send, msg, timeout=30)
         return True, "Email sent successfully via Mailtrap!"
     except Exception as e:
         app.logger.error(f"Mailtrap send failed: {e}")
         return False, f"Failed to send email: {str(e)}"
-
-    
 
 # -----------------------------------------------------
 # Routes
@@ -253,16 +252,26 @@ def email_notion_summary():
 
         new_pages = results.get("results", [])
         processed = 0
+        processed_ids = set()  # Track processed page IDs to avoid duplicates
 
         for page in new_pages:
+            page_id = page.get("id")
+            
+            # Skip if we've already processed this page
+            if page_id in processed_ids:
+                app.logger.warning(f"Skipping duplicate page: {page_id}")
+                continue
+                
+            processed_ids.add(page_id)
+            
             props = page.get("properties", {})
-            meeting_name = safe_get_text(props.get("Meeting Name", {}), "title") or "No Title"
-            summary = safe_get_text(props.get("Summary", {}), "rich_text") or "No summary"
-            action_items = safe_get_text(props.get("Action Items", {}), "rich_text") or "No action items"
-            key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text") or "No key questions"
+            meeting_name = safe_get_text(props.get("Meeting Name", {}), "title", page_id, "Meeting Name") or "No Title"
+            summary = safe_get_text(props.get("Summary", {}), "rich_text", page_id, "Summary") or "No summary"
+            action_items = safe_get_text(props.get("Action Items", {}), "rich_text", page_id, "Action Items") or "No action items"
+            key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text", page_id, "Key Questions") or "No key questions"
             notion_url = page.get("url", "No URL available")
 
-            app.logger.info(f"Processing page: {page.get('id')} ({notion_url})")
+            app.logger.info(f"Processing page: {page_id} ({notion_url})")
 
             email_success, _ = send_email_via_mailtrap(
                 meeting_name, summary, action_items, key_questions, notion_url
@@ -271,7 +280,7 @@ def email_notion_summary():
             if email_success:
                 timeout_wrapper(
                     notion.pages.update,
-                    page_id=page["id"],
+                    page_id=page_id,
                     properties={"Sent": {"checkbox": True}},
                     timeout=15,
                 )
