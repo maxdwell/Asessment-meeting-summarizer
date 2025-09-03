@@ -76,14 +76,23 @@ def format_for_notion(data):
         return json.dumps(data, indent=2)
     return str(data)
 
-def safe_get_text(prop, field="title"):
-    """Safely extract text from a Notion property (title or rich_text)."""
+def safe_get_text(prop, key_type="rich_text", page_id="unknown", field_name="unknown"):
+    """
+    Safely extract the first text string from a Notion property.
+    Logs when a property is missing or empty.
+    """
     try:
-        if field in prop and prop[field]:
-            return prop[field][0].get("text", {}).get("content", "")
-        return ""
-    except Exception:
-        return ""
+        if key_type in prop and prop[key_type]:
+            return prop[key_type][0].get("text", {}).get("content", "")
+        else:
+            app.logger.warning(
+                f"[Notion] Missing or empty field '{field_name}' (type={key_type}) on page {page_id}"
+            )
+    except Exception as e:
+        app.logger.error(
+            f"[Notion] Failed extracting '{field_name}' (type={key_type}) on page {page_id}: {e} | Raw: {prop}"
+        )
+    return ""
 
 def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, notion_url):
     try:
@@ -223,6 +232,7 @@ def summarize():
 @app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
+        # Instead of requiring body, process ALL unsent pages
         query = {"filter": {"property": "Sent", "checkbox": {"equals": False}}}
         results = timeout_wrapper(
             notion.databases.query,
@@ -235,20 +245,14 @@ def email_notion_summary():
         processed = 0
 
         for page in new_pages:
-            page_id = page.get("id")
-            notion_url = page.get("url", "No URL available")
             props = page.get("properties", {})
-
-            # Debug logging for inspection
-            app.logger.info(f"Processing page: {page_id} ({notion_url})")
-            app.logger.info(f"Raw properties: {json.dumps(props, indent=2)}")
-
             meeting_name = safe_get_text(props.get("Meeting Name", {}), "title") or "No Title"
             summary = safe_get_text(props.get("Summary", {}), "rich_text") or "No summary"
             action_items = safe_get_text(props.get("Action Items", {}), "rich_text") or "No action items"
             key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text") or "No key questions"
+            notion_url = page.get("url", "No URL available")
 
-            app.logger.info(f"Extracted -> Meeting: {meeting_name}, Summary: {summary[:50]}...")
+            app.logger.info(f"Processing page: {page.get('id')} ({notion_url})")
 
             email_success, _ = send_email_via_mailtrap(
                 meeting_name, summary, action_items, key_questions, notion_url
@@ -257,14 +261,11 @@ def email_notion_summary():
             if email_success:
                 timeout_wrapper(
                     notion.pages.update,
-                    page_id=page_id,
+                    page_id=page["id"],
                     properties={"Sent": {"checkbox": True}},
                     timeout=15,
                 )
                 processed += 1
-                app.logger.info(f"✅ Email sent and page {page_id} marked as Sent.")
-            else:
-                app.logger.warning(f"⚠️ Failed to send email for page {page_id}.")
 
         return jsonify({"message": f"Processed {processed} unsent meeting summaries."}), 200
     except TimeoutError as te:
@@ -273,7 +274,6 @@ def email_notion_summary():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/functions/email-notion-summary", methods=["POST"])
 def functions_email_notion_summary():
