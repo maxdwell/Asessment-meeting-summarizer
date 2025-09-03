@@ -4,3 +4,5 @@ python-dotenv
 notion-client
 openai
 requests
+Werkzeug
+httpx
