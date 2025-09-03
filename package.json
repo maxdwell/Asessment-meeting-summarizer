@@ -12,6 +12,7 @@
   "dependencies": {
     "@notionhq/client": "^4.0.2",
     "dotenv": "^17.2.1",
-    "mailersend": "^2.6.0"
+    "mailersend": "^2.6.0",
+    "mailtrap": "^4.2.0"
   }
 }

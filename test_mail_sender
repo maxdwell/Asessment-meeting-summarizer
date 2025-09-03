@@ -1,0 +1,28 @@
+from mailersend import MailerSendClient, EmailBuilder
+from mailersend.exceptions import MailerSendError
+
+# Initialize MailerSend client with your API key
+ms = MailerSendClient(api_key="mlsn.d44bc015f4494a061d0a6780990f47af06da1c2b17765a8421c720b8376302dc")
+
+# Build email using EmailBuilder
+email = (
+    EmailBuilder()
+    .from_email("iMS_MX2KCb@test-zkq340exr92gd796.mlsender.net", "Maxwell Edet")   # Verified sender
+    .to_many([
+        {"email": "maxdwell@hotmail.com", "name": "Recipient "}
+       
+    ])
+    .subject("Subject")
+    .html("<p>Greetings from the team, you got this message through MailerSend.</p>")
+    .text("Greetings from the team, you got this message through MailerSend.")
+    .build()
+)
+
+# Send the email
+try:
+    response = ms.emails.send(email)
+    print("Email sent successfully! Response:", response)
+except MailerSendError as e:
+    print(f"MailerSend API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")

@@ -6,8 +6,7 @@ import json
 import re
 from dotenv import load_dotenv
 from datetime import datetime
-from mailersend import MailerSendClient, EmailBuilder
-from mailersend.exceptions import MailerSendError
+from flask_mail import Mail, Message
 from werkzeug.exceptions import BadRequest
 import logging
 
@@ -21,15 +20,25 @@ openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 notion = Client(auth=os.getenv('NOTION_API_KEY'))
 notion_database_id = os.getenv('NOTION_DATABASE_ID')
 
-# MailerSend Config (hard-coded verified sender)
-MAILERSEND_API_KEY = os.getenv('MAILERSEND_API_KEY')
-MAILERSEND_VERIFIED_SENDER = "Maxdwell@hotmail.com"  # Verified sender email
-MAILERSEND_SMTP_USER = "MS_MX2KCb@test-zkq340exr92gd796.mlsender.net"
-
 # Flask setup
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# -----------------------------------------------------
+# Flask-Mail Configuration for Mailtrap
+# -----------------------------------------------------
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
+app.config['MAIL_USERNAME'] = os.getenv('MAILTRAP_SMTP_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAILTRAP_SMTP_PASSWORD')
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+
+# Initialize Flask-Mail
+mail = Mail(app)
+
+# Sender email (must be verified in your Mailtrap account)
+MAILTRAP_VERIFIED_SENDER = os.getenv('MAILTRAP_VERIFIED_SENDER', 'Maxdwell@hotmail.com')
 
 # -----------------------------------------------------
 # Helper functions
@@ -41,7 +50,6 @@ def extract_json_from_markdown(text):
     if matches:
         return matches[0].strip()
     return text
-
 
 def format_for_notion(data):
     """Format summaries, action items, or questions for Notion."""
@@ -63,18 +71,12 @@ def format_for_notion(data):
         return json.dumps(data, indent=2)
     return str(data)
 
-
 # -----------------------------------------------------
-# MailerSend email function
+# Mailtrap email function
 # -----------------------------------------------------
-def send_email_via_mailersend(meeting_name, summary, action_items, key_questions, notion_url):
+def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, notion_url):
     try:
-        if not MAILERSEND_API_KEY:
-            return False, "MailerSend not configured"
-
-        ms = MailerSendClient(api_key=MAILERSEND_API_KEY)
-
-        # Build email content
+        # Format email content
         html_content = f"""
         <h2>Meeting Summary: {meeting_name}</h2>
         <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
@@ -100,26 +102,20 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
         View in Notion: {notion_url}
         """
 
-        # Build email
-        email = (
-            EmailBuilder()
-            .from_email(MAILERSEND_VERIFIED_SENDER, "AI Meeting Summarizer")
-            .to_many([{"email": MAILERSEND_VERIFIED_SENDER, "name": "Demo User"}])  # trial accounts restriction
-            .subject(f"Meeting Summary: {meeting_name}")
-            .html(html_content)
-            .text(plain_text_content)
-            .build()
+        # Create message (fixed sender tuple)
+        msg = Message(
+            subject=f"Meeting Summary: {meeting_name}",
+            sender=("AI Meeting Summarizer", MAILTRAP_VERIFIED_SENDER),
+            recipients=[MAILTRAP_VERIFIED_SENDER]  # Trial: only to verified sender
         )
+        msg.body = plain_text_content
+        msg.html = html_content
 
-        # Send
-        response = ms.emails.send(email)
-        return True, f"Email sent successfully (status {response.status_code})"
+        mail.send(msg)
+        return True, "Email sent successfully via Mailtrap!"
 
-    except MailerSendError as e:
-        return False, f"MailerSend API Error: {str(e)}"
     except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
-
+        return False, f"Failed to send email: {str(e)}"
 
 # -----------------------------------------------------
 # Routes
@@ -127,7 +123,6 @@ def send_email_via_mailersend(meeting_name, summary, action_items, key_questions
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/summarize', methods=['POST'])
 def summarize():
@@ -191,8 +186,8 @@ def summarize():
 
         notion_url = new_page.get("url", "No URL available")
 
-        # Send email
-        email_success, email_message = send_email_via_mailersend(
+        # Send email via Mailtrap
+        email_success, email_message = send_email_via_mailtrap(
             meeting_name, summary_str, action_items_str, key_questions_str, notion_url
         )
 
@@ -214,7 +209,6 @@ def summarize():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/email-notion-summary', methods=['POST'])
 def email_notion_summary():
     try:
@@ -232,7 +226,7 @@ def email_notion_summary():
         key_questions = props.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
         notion_url = page.get('url', 'No URL available')
 
-        email_success, email_message = send_email_via_mailersend(
+        email_success, email_message = send_email_via_mailtrap(
             meeting_name, summary, action_items, key_questions, notion_url
         )
 
@@ -249,11 +243,23 @@ def email_notion_summary():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/functions/email-notion-summary', methods=['POST'])
 def functions_email_notion_summary():
     return email_notion_summary()
 
+# -----------------------------------------------------
+# Test Email Route (new)
+# -----------------------------------------------------
+@app.route('/test-email')
+def test_email():
+    success, message = send_email_via_mailtrap(
+        "Test Meeting",
+        "This is a test summary.",
+        "Action 1\nAction 2",
+        "Question 1\nQuestion 2",
+        "https://notion.so/test-page"
+    )
+    return jsonify({"success": success, "message": message})
 
 # -----------------------------------------------------
 # Entrypoint
