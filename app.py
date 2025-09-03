@@ -1,269 +1,161 @@
-from flask import Flask, request, jsonify, render_template
-from openai import OpenAI
-from notion_client import Client
 import os
-import json
-import re
-from dotenv import load_dotenv
-from datetime import datetime
-from flask_mail import Mail, Message
-import logging
-import requests
-import concurrent.futures
-import traceback
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-# -----------------------------------------------------
+from flask import Flask, request, jsonify
+import requests
+from dotenv import load_dotenv
+
 # Load environment variables
-# -----------------------------------------------------
 load_dotenv()
 
-# Initialize APIs
-openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-notion = Client(auth=os.getenv('NOTION_API_KEY'))
-notion_database_id = os.getenv('NOTION_DATABASE_ID')
-
-# Flask setup
+# Flask app
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 
-# -----------------------------------------------------
-# Flask-Mail Configuration for Mailtrap
-# -----------------------------------------------------
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', "587"))
-app.config['MAIL_USERNAME'] = os.getenv('MAILTRAP_SMTP_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAILTRAP_SMTP_PASSWORD')
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
+# Notion setup
+NOTION_API_KEY = os.getenv("NOTION_API_KEY")
+NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+NOTION_HEADERS = {
+    "Authorization": f"Bearer {NOTION_API_KEY}",
+    "Content-Type": "application/json",
+    "Notion-Version": "2022-06-28",
+}
 
-mail = Mail(app)
-MAILTRAP_VERIFIED_SENDER = os.getenv('MAILTRAP_VERIFIED_SENDER', 'Maxdwell@hotmail.com')
+# Mailtrap SMTP setup
+MAILTRAP_HOST = os.getenv("MAILTRAP_SMTP_SERVER", "live.smtp.mailtrap.io")
+MAILTRAP_PORT = int(os.getenv("MAILTRAP_SMTP_PORT", "587"))
+MAILTRAP_USER = os.getenv("MAILTRAP_SMTP_USERNAME")
+MAILTRAP_PASS = os.getenv("MAILTRAP_SMTP_PASSWORD")
+MAILTRAP_SENDER = os.getenv("MAILTRAP_VERIFIED_SENDER")
 
-# -----------------------------------------------------
-# Timeout helper
-# -----------------------------------------------------
-def timeout_wrapper(func, *args, timeout=20, **kwargs):
-    """Run function with timeout in seconds."""
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(func, *args, **kwargs)
-        try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(f"{func.__name__} exceeded {timeout}s timeout")
 
-# -----------------------------------------------------
-# Helpers
-# -----------------------------------------------------
-def extract_json_from_markdown(text):
-    pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
-    matches = re.findall(pattern, text)
-    return matches[0].strip() if matches else text
-
-def format_for_notion(data):
-    if isinstance(data, list):
-        if data and isinstance(data[0], dict) and 'action' in data[0]:
-            return "\n".join(
-                f"• {item.get('action', '')} (Owner: {item.get('owner', '')})" if item.get('owner')
-                else f"• {item.get('action', '')}"
-                for item in data
-            ).strip()
-        elif data and isinstance(data[0], str):
-            return "\n".join([f"• {q}" for q in data])
-        return "\n".join([f"• {str(i)}" for i in data])
-    elif isinstance(data, dict):
-        return json.dumps(data, indent=2)
-    return str(data)
-
-def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, notion_url):
+def send_email(subject, html_content, text_content, to_email):
+    """Send email through Mailtrap SMTP"""
     try:
-        html_content = f"""
-        <h2>Meeting Summary: {meeting_name}</h2>
-        <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
-        <p><strong>Action Items:</strong></p>
-        <ul>{"".join([f'<li>{i}</li>' for i in action_items.split(chr(10)) if i.strip()])}</ul>
-        <p><strong>Key Questions:</strong></p>
-        <ul>{"".join([f'<li>{q}</li>' for q in key_questions.split(chr(10)) if q.strip()])}</ul>
-        <p><strong>View in Notion:</strong> <a href="{notion_url}">{notion_url}</a></p>
-        """
+        msg = MIMEMultipart("alternative")
+        msg["From"] = f"Meeting Bot <{MAILTRAP_SENDER}>"
+        msg["To"] = to_email
+        msg["Subject"] = subject
 
-        plain_text_content = f"""
-        Meeting Summary: {meeting_name}
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
 
-        Summary:
-        {summary}
+        with smtplib.SMTP(MAILTRAP_HOST, MAILTRAP_PORT) as server:
+            server.starttls()
+            server.login(MAILTRAP_USER, MAILTRAP_PASS)
+            server.sendmail(MAILTRAP_SENDER, to_email, msg.as_string())
 
-        Action Items:
-        {action_items}
-
-        Key Questions:
-        {key_questions}
-
-        View in Notion: {notion_url}
-        """
-
-        msg = Message(
-            subject=f"Meeting Summary: {meeting_name}",
-            sender=(MAILTRAP_VERIFIED_SENDER, "AI Meeting Summarizer"),
-            recipients=[MAILTRAP_VERIFIED_SENDER]
-        )
-        msg.body = plain_text_content
-        msg.html = html_content
-
-        timeout_wrapper(mail.send, msg, timeout=15)  # enforce timeout
-        return True, "Email sent successfully via Mailtrap!"
+        return True
     except Exception as e:
-        return False, f"Failed to send email: {str(e)}"
+        app.logger.error(f"Email send failed: {e}")
+        return False
 
-# -----------------------------------------------------
-# Routes
-# -----------------------------------------------------
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-@app.route('/summarize', methods=['POST'])
-def summarize():
-    try:
-        if not request.is_json:
-            return jsonify({'error': 'Request must be JSON'}), 400
+def build_email_content(page):
+    """Build HTML + text content from Notion page"""
+    meeting_name = (
+        page.get("properties", {})
+        .get("Meeting Name", {})
+        .get("title", [{}])[0]
+        .get("text", {})
+        .get("content", "No Title")
+    )
+    summary = (
+        page.get("properties", {})
+        .get("Summary", {})
+        .get("rich_text", [{}])[0]
+        .get("text", {})
+        .get("content", "No summary provided.")
+    )
+    action_items = (
+        page.get("properties", {})
+        .get("Action Items", {})
+        .get("rich_text", [{}])[0]
+        .get("text", {})
+        .get("content", "No action items.")
+    )
+    key_questions = (
+        page.get("properties", {})
+        .get("Key Questions", {})
+        .get("rich_text", [{}])[0]
+        .get("text", {})
+        .get("content", "No key questions.")
+    )
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'error': 'Empty JSON body'}), 400
+    html = f"""
+    <h2>New Meeting Summary: {meeting_name}</h2>
+    <p><strong>Summary:</strong><br>{summary.replace("\n", "<br>")}</p>
+    <p><strong>Action Items:</strong></p>
+    <ul>{''.join(f'<li>{i}</li>' for i in action_items.splitlines() if i.strip())}</ul>
+    <p><strong>Key Questions:</strong></p>
+    <ul>{''.join(f'<li>{q}</li>' for q in key_questions.splitlines() if q.strip())}</ul>
+    <p><strong>View in Notion:</strong> <a href="{page.get("url")}">{page.get("url")}</a></p>
+    """
 
-        transcript = data.get('transcript')
-        meeting_name = data.get('meetingName', 'Untitled Meeting')
+    text = f"""Meeting Summary: {meeting_name}
 
-        if not transcript:
-            return jsonify({'error': 'No transcript provided'}), 400
+Summary:
+{summary}
 
-        prompt = f"""
-        Please analyze the following meeting transcript and extract:
-        - A concise summary.
-        - Action items with owners.
-        - Key questions unresolved.
+Action Items:
+{action_items}
 
-        Format as JSON with keys: summary, action_items, key_questions.
+Key Questions:
+{key_questions}
 
-        Transcript:
-        {transcript}
-        """
+View in Notion: {page.get("url")}
+"""
+    return meeting_name, html, text
 
-        response = timeout_wrapper(
-            openai_client.chat.completions.create,
-            model="gpt-4-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            timeout=30
-        )
 
-        ai_content = response.choices[0].message.content
-        cleaned_content = extract_json_from_markdown(ai_content)
-
-        try:
-            summary_data = json.loads(cleaned_content)
-        except json.JSONDecodeError:
-            summary_data = {
-                "summary": ai_content,
-                "action_items": "Could not parse action items.",
-                "key_questions": "Could not parse key questions."
-            }
-
-        summary_str = format_for_notion(summary_data.get('summary', ''))
-        action_items_str = format_for_notion(summary_data.get('action_items', ''))
-        key_questions_str = format_for_notion(summary_data.get('key_questions', ''))
-
-        new_page = timeout_wrapper(
-            notion.pages.create,
-            parent={"database_id": notion_database_id},
-            properties={
-                "Meeting Name": {"title": [{"text": {"content": meeting_name}}]},
-                "Summary": {"rich_text": [{"text": {"content": summary_str}}]},
-                "Action Items": {"rich_text": [{"text": {"content": action_items_str}}]},
-                "Key Questions": {"rich_text": [{"text": {"content": key_questions_str}}]},
-                "Date": {"date": {"start": datetime.now().isoformat()[:10]}},
-                "Sent": {"checkbox": False}
-            },
-            timeout=20
-        )
-
-        notion_url = new_page.get("url", "No URL available")
-
-        email_success, email_message = send_email_via_mailtrap(
-            meeting_name, summary_str, action_items_str, key_questions_str, notion_url
-        )
-
-        if email_success:
-            timeout_wrapper(
-                notion.pages.update,
-                page_id=new_page["id"],
-                properties={"Sent": {"checkbox": True}},
-                timeout=15
-            )
-
-        return jsonify({
-            "message": "Summary created successfully!",
-            "notion_url": notion_url,
-            "email_sent": email_success,
-            "email_message": email_message
-        }), 200
-    except TimeoutError as te:
-        logging.error("Timeout: %s", str(te))
-        return jsonify({'error': 'Operation timed out', 'details': str(te)}), 504
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/email-notion-summary', methods=['POST'])
+@app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
-        if not request.is_json:
-            return jsonify({'error': 'Request must be JSON'}), 400
+        data = request.get_json(silent=True) or {}
+        app.logger.info(f"Incoming payload: {data}")
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'error': 'Empty JSON body'}), 400
-
-        page_id = data.get('page_id')
-        if not page_id:
-            return jsonify({'error': 'No page_id provided'}), 400
-
-        page = timeout_wrapper(notion.pages.retrieve, page_id=page_id, timeout=20)
-        props = page.get('properties', {})
-
-        meeting_name = props.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
-        summary = props.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
-        action_items = props.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
-        key_questions = props.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
-        notion_url = page.get('url', 'No URL available')
-
-        email_success, email_message = send_email_via_mailtrap(
-            meeting_name, summary, action_items, key_questions, notion_url
+        # Query Notion for unsent meeting summaries
+        query = {
+            "filter": {"property": "Sent", "checkbox": {"equals": False}}
+        }
+        res = requests.post(
+            f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query",
+            headers=NOTION_HEADERS,
+            json=query,
         )
+        res.raise_for_status()
+        new_pages = res.json().get("results", [])
 
-        if email_success:
-            timeout_wrapper(
-                notion.pages.update,
-                page_id=page_id,
-                properties={"Sent": {"checkbox": True}},
-                timeout=15
+        processed = 0
+        for page in new_pages:
+            meeting_name, html_content, text_content = build_email_content(page)
+
+            sent = send_email(
+                subject=f"Meeting Summary: {meeting_name}",
+                html_content=html_content,
+                text_content=text_content,
+                to_email=MAILTRAP_SENDER,  # Mailtrap trial restriction
             )
 
-        return jsonify({"success": email_success, "message": email_message}), 200
-    except TimeoutError as te:
-        logging.error("Timeout: %s", str(te))
-        return jsonify({'error': 'Operation timed out', 'details': str(te)}), 504
+            if sent:
+                # Mark as sent in Notion
+                requests.patch(
+                    f"https://api.notion.com/v1/pages/{page['id']}",
+                    headers=NOTION_HEADERS,
+                    json={"properties": {"Sent": {"checkbox": True}}},
+                )
+                processed += 1
+
+        return jsonify(
+            {"message": f"Successfully processed {processed} meeting summaries."}
+        ), 200
+
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error in email_notion_summary: {e}")
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/functions/email-notion-summary', methods=['POST'])
-def functions_email_notion_summary():
-    return email_notion_summary()
 
-# -----------------------------------------------------
-# Entrypoint
-# -----------------------------------------------------
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
