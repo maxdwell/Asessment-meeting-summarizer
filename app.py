@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from flask_mail import Mail, Message
 import logging
+import requests
 
 # -----------------------------------------------------
 # Load environment variables
@@ -194,28 +195,39 @@ def summarize():
 @app.route('/api/email-notion-summary', methods=['POST'])
 def email_notion_summary():
     try:
-        if not request.is_json:
-            return jsonify({'error': 'Request must be JSON'}), 400
+        data = request.get_json(force=True)  # ✅ Force parse JSON
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'error': 'Empty JSON body'}), 400
+        if not data or "page_id" not in data:
+            return jsonify({"error": "page_id is required in the request body"}), 400
 
-        page_id = data.get('page_id')
-        if not page_id:
-            return jsonify({'error': 'No page_id provided'}), 400
+        page_id = data["page_id"]
 
-        page = notion.pages.retrieve(page_id=page_id)
-        props = page.get('properties', {})
+        # ✅ Fetch page from Notion directly via API (avoids client silent failures)
+        notion_url = f"https://api.notion.com/v1/pages/{page_id}"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('NOTION_API_KEY')}",
+            "Notion-Version": "2022-06-28"
+        }
+        notion_response = requests.get(notion_url, headers=headers)
 
-        meeting_name = props.get("Meeting Name", {}).get('title', [{}])[0].get('text', {}).get('content', "No Title")
-        summary = props.get("Summary", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No summary")
-        action_items = props.get("Action Items", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No action items")
-        key_questions = props.get("Key Questions", {}).get('rich_text', [{}])[0].get('text', {}).get('content', "No key questions")
-        notion_url = page.get('url', 'No URL available')
+        if notion_response.status_code != 200:
+            return jsonify({
+                "error": "Failed to fetch page from Notion",
+                "status_code": notion_response.status_code,
+                "details": notion_response.text
+            }), notion_response.status_code
+
+        page = notion_response.json()
+        props = page.get("properties", {})
+
+        meeting_name = props.get("Meeting Name", {}).get("title", [{}])[0].get("text", {}).get("content", "No Title")
+        summary = props.get("Summary", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "No summary")
+        action_items = props.get("Action Items", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "No action items")
+        key_questions = props.get("Key Questions", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "No key questions")
+        page_url = page.get("url", "No URL available")
 
         email_success, email_message = send_email_via_mailtrap(
-            meeting_name, summary, action_items, key_questions, notion_url
+            meeting_name, summary, action_items, key_questions, page_url
         )
 
         if email_success:
@@ -224,7 +236,13 @@ def email_notion_summary():
                 properties={"Sent": {"checkbox": True}}
             )
 
-        return jsonify({"success": email_success, "message": email_message})
+        return jsonify({
+            "success": email_success,
+            "message": email_message,
+            "page_id": page_id,
+            "meeting_name": meeting_name,
+            "page_url": page_url
+        })
     except Exception as e:
         import traceback
         traceback.print_exc()
