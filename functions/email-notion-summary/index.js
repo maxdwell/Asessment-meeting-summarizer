@@ -1,23 +1,22 @@
 import { Client } from "@notionhq/client";
-import { MailtrapClient } from "mailtrap";
+import nodemailer from "nodemailer";
 
 // Initialize Notion client
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
-// Initialize Mailtrap client
-const mailtrap = new MailtrapClient({
-  token: process.env.MAILTRAP_API_TOKEN, // Add this in your .env
+// Setup Mailtrap transporter with Nodemailer
+const transporter = nodemailer.createTransport({
+  host: process.env.MAILTRAP_SMTP_SERVER || "live.smtp.mailtrap.io",
+  port: parseInt(process.env.MAILTRAP_SMTP_PORT || "587"),
+  auth: {
+    user: process.env.MAILTRAP_SMTP_USERNAME,
+    pass: process.env.MAILTRAP_SMTP_PASSWORD,
+  },
 });
-
-// Define sender (must match a verified inbox in Mailtrap)
-const sender = {
-  email: process.env.SENDER_EMAIL,
-  name: "Meeting Summary Bot",
-};
 
 export default async function (request) {
   try {
-    // Fetch pages that haven’t been marked as "Sent"
+    // Query Notion for unsent meeting summaries
     const response = await notion.databases.query({
       database_id: process.env.NOTION_DATABASE_ID,
       filter: {
@@ -29,28 +28,23 @@ export default async function (request) {
     const newPages = response.results;
 
     for (const page of newPages) {
-      // Extract meeting details safely
       const meetingName =
-        page.properties["Meeting Name"]?.title[0]?.text?.content || "No Title";
+        page.properties["Meeting Name"]?.title?.[0]?.text?.content || "No Title";
       const summary =
-        page.properties["Summary"]?.rich_text[0]?.text?.content ||
-        "No summary provided.";
+        page.properties["Summary"]?.rich_text?.[0]?.text?.content || "No summary provided.";
       const actionItems =
-        page.properties["Action Items"]?.rich_text[0]?.text?.content ||
-        "No action items.";
+        page.properties["Action Items"]?.rich_text?.[0]?.text?.content || "No action items.";
       const keyQuestions =
-        page.properties["Key Questions"]?.rich_text[0]?.text?.content ||
-        "No key questions.";
+        page.properties["Key Questions"]?.rich_text?.[0]?.text?.content || "No key questions.";
 
-      // Build email HTML
       const emailHtml = `
         <h2>New Meeting Summary: ${meetingName}</h2>
         <p><strong>Summary:</strong><br>${summary.replace(/\n/g, "<br>")}</p>
         <p><strong>Action Items:</strong></p>
         <ul>${actionItems
           .split("\n")
-          .filter((item) => item.trim())
-          .map((item) => `<li>${item}</li>`)
+          .filter((i) => i.trim())
+          .map((i) => `<li>${i}</li>`)
           .join("")}</ul>
         <p><strong>Key Questions:</strong></p>
         <ul>${keyQuestions
@@ -61,26 +55,26 @@ export default async function (request) {
         <p><strong>View in Notion:</strong> <a href="${page.url}">${page.url}</a></p>
       `;
 
-      // Send email using Mailtrap
-      await mailtrap.send({
-        from: sender,
-        to: [
-          {
-            email: process.env.TEAM_LEAD_EMAIL,
-            name: "Team Lead",
-          },
-        ],
+      // Send email via Mailtrap
+      await transporter.sendMail({
+        from: `"Meeting Summary Bot" <${process.env.MAILTRAP_VERIFIED_SENDER}>`,
+        to: process.env.MAILTRAP_VERIFIED_SENDER, // trial restriction: send only to verified sender
         subject: `Meeting Summary: ${meetingName}`,
         html: emailHtml,
         text: `Meeting Summary: ${meetingName}\n\nSummary:\n${summary}\n\nAction Items:\n${actionItems}\n\nKey Questions:\n${keyQuestions}\n\nView in Notion: ${page.url}`,
       });
 
-      // Mark page as Sent in Notion
+      // Call Flask API with valid JSON payload
+      await fetch(`${process.env.FLASK_API_BASE_URL}/api/email-notion-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_id: page.id }),
+      });
+
+      // Update Notion page as sent
       await notion.pages.update({
         page_id: page.id,
-        properties: {
-          Sent: { checkbox: true },
-        },
+        properties: { Sent: { checkbox: true } },
       });
     }
 
@@ -88,16 +82,19 @@ export default async function (request) {
       JSON.stringify({
         message: `Successfully processed ${newPages.length} meeting summaries.`,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   } catch (error) {
     console.error("Function error details:", error);
     return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        details: error.message,
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Internal server error", details: error.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }
