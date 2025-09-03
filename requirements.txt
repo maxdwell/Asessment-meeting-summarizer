@@ -1,6 +1,6 @@
-flask
-openai
+Flask
+Flask-Mail
+python-dotenv
 notion-client
-python-dotenv
-python-dotenv
-Flask-Mail==0.9.1
+openai
+requests
