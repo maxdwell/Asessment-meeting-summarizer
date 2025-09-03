@@ -31,8 +31,8 @@ notion_database_id = os.getenv("NOTION_DATABASE_ID")
 # -----------------------------------------------------
 # Mailtrap (Flask-Mail) setup
 # -----------------------------------------------------
-app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER")
-app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT"))
+app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "sandbox.smtp.mailtrap.io")
+app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", "587"))
 app.config["MAIL_USERNAME"] = os.getenv("MAILTRAP_SMTP_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAILTRAP_SMTP_PASSWORD")
 app.config["MAIL_USE_TLS"] = True
@@ -105,10 +105,10 @@ def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, 
 
         msg = Message(
             subject=f"Meeting Summary: {meeting_name}",
-            sender=(MAILTRAP_VERIFIED_SENDER, "AI Meeting Summarizer"),
-            recipients=[MAILTRAP_VERIFIED_SENDER],  # Mailtrap trial restriction
+            sender=MAILTRAP_VERIFIED_SENDER,
+            recipients=[MAILTRAP_VERIFIED_SENDER],  # Mailtrap trial: only send to verified inbox
         )
-        msg.body = plain_text_content
+        msg.body = plain_text_content.strip()
         msg.html = html_content
 
         timeout_wrapper(mail.send, msg, timeout=15)
@@ -214,7 +214,6 @@ def summarize():
 @app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
-        # Instead of requiring body, process ALL unsent pages
         query = {"filter": {"property": "Sent", "checkbox": {"equals": False}}}
         results = timeout_wrapper(
             notion.databases.query,
