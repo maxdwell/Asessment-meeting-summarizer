@@ -11,6 +11,7 @@ from flask_mail import Mail, Message
 from openai import OpenAI
 from notion_client import Client
 from dotenv import load_dotenv
+from mailtrap import Mail, MailtrapClient, Address
 
 # -----------------------------------------------------
 # Load environment variables
@@ -52,6 +53,11 @@ def timeout_wrapper(func, *args, timeout=20, **kwargs):
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
             raise TimeoutError(f"{func.__name__} exceeded {timeout}s timeout")
+        
+notion_database_url = os.getenv(
+    "NOTION_DATABASE_URL",
+    "https://www.notion.so/2600089e9046800782ffc62e47b9da86?v=2600089e9046801c8aee000c68f9d671"
+)
 
 # -----------------------------------------------------
 # Helpers
@@ -79,23 +85,36 @@ def format_for_notion(data):
 def safe_get_text(prop, key_type="rich_text", page_id="unknown", field_name="unknown"):
     """
     Safely extract the first text string from a Notion property.
-    Logs when a property is missing or empty.
+    Handles empty arrays and logs warnings.
     """
     try:
-        if key_type in prop and prop[key_type]:
-            return prop[key_type][0].get("text", {}).get("content", "")
+        if not prop:
+            app.logger.warning(f"[Notion] Missing property '{field_name}' on page {page_id}")
+            return ""
+
+        if key_type in prop:
+            values = prop[key_type]
+            if isinstance(values, list) and len(values) > 0:
+                return values[0].get("text", {}).get("content", "")
+            else:
+                app.logger.warning(
+                    f"[Notion] Empty '{field_name}' (type={key_type}) on page {page_id}"
+                )
+                return ""
         else:
             app.logger.warning(
-                f"[Notion] Missing or empty field '{field_name}' (type={key_type}) on page {page_id}"
+                f"[Notion] Property type '{key_type}' not found for field '{field_name}' on page {page_id}"
             )
+            return ""
     except Exception as e:
         app.logger.error(
-            f"[Notion] Failed extracting '{field_name}' (type={key_type}) on page {page_id}: {e} | Raw: {prop}"
+            f"[Notion] Failed extracting '{field_name}' on page {page_id}: {e} | Raw: {prop}"
         )
-    return ""
+        return ""
 
-def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, notion_url):
+def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, page_url):
     try:
+        # Include both links
         html_content = f"""
         <h2>Meeting Summary: {meeting_name}</h2>
         <p><strong>Summary:</strong><br>{summary.replace(chr(10), '<br>')}</p>
@@ -103,7 +122,8 @@ def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, 
         <ul>{"".join([f'<li>{i}</li>' for i in action_items.split(chr(10)) if i.strip()])}</ul>
         <p><strong>Key Questions:</strong></p>
         <ul>{"".join([f'<li>{q}</li>' for q in key_questions.split(chr(10)) if q.strip()])}</ul>
-        <p><strong>View in Notion:</strong> <a href="{notion_url}">{notion_url}</a></p>
+        <p><strong>View Page in Notion:</strong> <a href="{page_url}">{page_url}</a></p>
+        <p><strong>View Database in Notion:</strong> <a href="{notion_database_url}">{notion_database_url}</a></p>
         """
 
         plain_text_content = f"""
@@ -118,7 +138,8 @@ def send_email_via_mailtrap(meeting_name, summary, action_items, key_questions, 
         Key Questions:
         {key_questions}
 
-        View in Notion: {notion_url}
+        View Page in Notion: {page_url}
+        View Database in Notion: {notion_database_url}
         """
 
         msg = Message(
@@ -232,7 +253,6 @@ def summarize():
 @app.route("/api/email-notion-summary", methods=["POST"])
 def email_notion_summary():
     try:
-        # Instead of requiring body, process ALL unsent pages
         query = {"filter": {"property": "Sent", "checkbox": {"equals": False}}}
         results = timeout_wrapper(
             notion.databases.query,
@@ -246,10 +266,10 @@ def email_notion_summary():
 
         for page in new_pages:
             props = page.get("properties", {})
-            meeting_name = safe_get_text(props.get("Meeting Name", {}), "title") or "No Title"
-            summary = safe_get_text(props.get("Summary", {}), "rich_text") or "No summary"
-            action_items = safe_get_text(props.get("Action Items", {}), "rich_text") or "No action items"
-            key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text") or "No key questions"
+            meeting_name = safe_get_text(props.get("Meeting Name"), "title", page.get("id"), "Meeting Name") or "No Title"
+            summary = safe_get_text(props.get("Summary"), "rich_text", page.get("id"), "Summary") or "No summary"
+            action_items = safe_get_text(props.get("Action Items"), "rich_text", page.get("id"), "Action Items") or "No action items"
+            key_questions = safe_get_text(props.get("Key Questions"), "rich_text", page.get("id"), "Key Questions") or "No key questions"
             notion_url = page.get("url", "No URL available")
 
             app.logger.info(f"Processing page: {page.get('id')} ({notion_url})")

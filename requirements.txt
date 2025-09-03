@@ -6,3 +6,4 @@ openai
 requests
 Werkzeug
 httpx
+Mailtrap
