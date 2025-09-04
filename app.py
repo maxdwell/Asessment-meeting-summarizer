@@ -53,10 +53,10 @@ def timeout_wrapper(func, *args, timeout=20, **kwargs):
         except concurrent.futures.TimeoutError:
             raise TimeoutError(f"{func.__name__} exceeded {timeout}s timeout")
         
-notion_database_url = os.getenv(
-    "NOTION_DATABASE_URL",
-    "https://www.notion.so/2600089e9046800782ffc62e47b9da86?v=2600089e9046801c8aee000c68f9d671"
-)
+#notion_database_url = os.getenv(
+#    "NOTION_DATABASE_URL",
+#    "https://www.notion.so/2600089e9046800782ffc62e47b9da86?v=2600089e9046801c8aee000c68f9d671"
+#)
 
 # -----------------------------------------------------
 # Helpers
