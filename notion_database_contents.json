@@ -1,6 +1,194 @@
 [
   {
     "object": "page",
+    "id": "2640089e-9046-81dc-8b05-d0815477693e",
+    "created_time": "2025-09-04T11:19:00.000Z",
+    "last_edited_time": "2025-09-04T11:19:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "46dec779-166b-4d45-9432-fff1c82dabff"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "46dec779-166b-4d45-9432-fff1c82dabff"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "The meeting involved various teams including Secure, Govern Growth, Data Science, Applied ML, ML Ops, and Anti-Abuse. Key points discussed included organizational changes, role assignments, and operational improvements. Alan was welcomed as the acting full stack manager for security policies. The Anti-Abuse team is transitioning to the Data Science team. There were discussions on improving communication efficiency, celebrating team achievements, and handling security issues in compliance with FedRAMP. The meeting also touched on team cohesion and recognition of work anniversaries and new hires.",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "The meeting involved various teams including Secure, Govern Growth, Data Science, Applied ML, ML Ops, and Anti-Abuse. Key points discussed included organizational changes, role assignments, and operational improvements. Alan was welcomed as the acting full stack manager for security policies. The Anti-Abuse team is transitioning to the Data Science team. There were discussions on improving communication efficiency, celebrating team achievements, and handling security issues in compliance with FedRAMP. The meeting also touched on team cohesion and recognition of work anniversaries and new hires.",
+            "href": null
+          }
+        ]
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": {
+          "start": "2025-09-04",
+          "end": null,
+          "time_zone": null
+        }
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "• Step in as acting full stack manager for security policies. (Owner: Phil)\n• Compile and report on engineering allocation meeting on error budgets and reliability and security incidents. (Owner: Thomas)\n• Assist Thomas with reports on error budgets and reliability and security incidents. (Owner: Neil)\n• Ensure attendance at meetings or read the notes, not relying solely on Slack channel for updates. (Owner: Team Leaders)\n• Consider adding work anniversaries and new hires to the meeting template to improve team camaraderie. (Owner: Wayne)\n• Serve as the acting EM for the newly established second team within Dynamic Analysis. (Owner: Thomas)\n• Update on challenge assessment dates and handle the transition to Workday for evaluations. (Owner: Juliana)\n• Provide feedback on the development vision and mission as requested by Daniel Croft. (Owner: All Team Members)",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "• Step in as acting full stack manager for security policies. (Owner: Phil)\n• Compile and report on engineering allocation meeting on error budgets and reliability and security incidents. (Owner: Thomas)\n• Assist Thomas with reports on error budgets and reliability and security incidents. (Owner: Neil)\n• Ensure attendance at meetings or read the notes, not relying solely on Slack channel for updates. (Owner: Team Leaders)\n• Consider adding work anniversaries and new hires to the meeting template to improve team camaraderie. (Owner: Wayne)\n• Serve as the acting EM for the newly established second team within Dynamic Analysis. (Owner: Thomas)\n• Update on challenge assessment dates and handle the transition to Workday for evaluations. (Owner: Juliana)\n• Provide feedback on the development vision and mission as requested by Daniel Croft. (Owner: All Team Members)",
+            "href": null
+          }
+        ]
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "• What will be the new name for the team currently named SEC Growth and Data Science?\n• How will the team differentiate the new second team within Dynamic Analysis?\n• How to handle security findings related to Debian based images under FedRAMP compliance?\n• Is the new approval process for segregation of duty affecting team operations significantly?\n• Should the team use Reviewer Roulette for tracking maintainers, and how to ensure it reflects accurate data?",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "• What will be the new name for the team currently named SEC Growth and Data Science?\n• How will the team differentiate the new second team within Dynamic Analysis?\n• How to handle security findings related to Debian based images under FedRAMP compliance?\n• Is the new approval process for segregation of duty affecting team operations significantly?\n• Should the team use Reviewer Roulette for tracking maintainers, and how to ensure it reflects accurate data?",
+            "href": null
+          }
+        ]
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": [
+          {
+            "type": "text",
+            "text": {
+              "content": "NoteGPT_Sec Growth DataScience staff meeting Sep 14 2022",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "NoteGPT_Sec Growth DataScience staff meeting Sep 14 2022",
+            "href": null
+          }
+        ]
+      }
+    },
+    "url": "https://www.notion.so/NoteGPT_Sec-Growth-DataScience-staff-meeting-Sep-14-2022-2640089e904681dc8b05d0815477693e",
+    "public_url": "https://thirsty-jumper-f31.notion.site/NoteGPT_Sec-Growth-DataScience-staff-meeting-Sep-14-2022-2640089e904681dc8b05d0815477693e"
+  },
+  {
+    "object": "page",
+    "id": "2640089e-9046-801e-9b4d-f239bdb0db52",
+    "created_time": "2025-09-04T11:17:00.000Z",
+    "last_edited_time": "2025-09-04T11:17:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2640089e9046801e9b4df239bdb0db52",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2640089e9046801e9b4df239bdb0db52"
+  },
+  {
+    "object": "page",
     "id": "2640089e-9046-8090-bbd9-d38ce69e1d55",
     "created_time": "2025-09-04T10:10:00.000Z",
     "last_edited_time": "2025-09-04T10:10:00.000Z",
