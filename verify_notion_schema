@@ -1,0 +1,48 @@
+import os
+from notion_client import Client
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Notion client
+notion = Client(auth=os.getenv("NOTION_API_KEY"))
+
+# Retrieve database ID from environment variables
+database_id = os.getenv("NOTION_DATABASE_ID")
+
+def retrieve_database_schema(database_id):
+    """
+    Retrieve the schema of a Notion database and print property names and types.
+    """
+    try:
+        # Retrieve the database schema
+        database = notion.databases.retrieve(database_id=database_id)
+        properties = database.get('properties', {})
+        
+        print("Database Schema Retrieved Successfully!")
+        print(f"Database Name: {database.get('title', [{}])[0].get('text', {}).get('content', 'Untitled')}")
+        print("\nProperties in Database:")
+        print("-" * 40)
+        
+        # Iterate through each property and print details
+        for prop_name, prop_details in properties.items():
+            prop_type = prop_details.get('type', 'unknown')
+            print(f"Name: {prop_name} | Type: {prop_type}")
+            
+            # Optional: Print type-specific details if needed
+            # if prop_type in ['select', 'multi_select']:
+            #     options = prop_details.get(prop_type, {}).get('options', [])
+            #     print(f"  Options: {[opt['name'] for opt in options]}")
+            # elif prop_type == 'formula':
+            #     expression = prop_details.get(prop_type, {}).get('expression', '')
+            #     print(f"  Expression: {expression}")
+        
+    except Exception as e:
+        print(f"Error retrieving database schema: {e}")
+
+if __name__ == "__main__":
+    if not database_id:
+        print("ERROR: NOTION_DATABASE_ID environment variable is not set.")
+    else:
+        retrieve_database_schema(database_id)

@@ -52,13 +52,13 @@ export default async function (request) {
       const meetingName =
         page.properties["Meeting Name"]?.title?.[0]?.text?.content || "No Title";
       const summary =
-        page.properties["Summary"]?.text?.[0]?.text?.content ||
+        page.properties["Summary"]?.rich_text?.[0]?.text?.content ||
         "No summary provided.";
       const actionItems =
-        page.properties["Action Items"]?.text?.[0]?.text?.content ||
+        page.properties["Action Items"]?.rich_text?.[0]?.text?.content ||
         "No action items.";
       const keyQuestions =
-        page.properties["Key Questions"]?.text?.[0]?.text?.content ||
+        page.properties["Key Questions"]?.rich_text?.[0]?.text?.content ||
         "No key questions.";
 
       console.log(`📧 Preparing email for: ${meetingName}`);

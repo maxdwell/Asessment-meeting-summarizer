@@ -1,0 +1,526 @@
+[
+  {
+    "object": "page",
+    "id": "2640089e-9046-8090-bbd9-d38ce69e1d55",
+    "created_time": "2025-09-04T10:10:00.000Z",
+    "last_edited_time": "2025-09-04T10:10:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2640089e90468090bbd9d38ce69e1d55",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2640089e90468090bbd9d38ce69e1d55"
+  },
+  {
+    "object": "page",
+    "id": "2610089e-9046-817d-a65e-c92160ab7b6a",
+    "created_time": "2025-09-01T17:35:00.000Z",
+    "last_edited_time": "2025-09-02T16:16:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "46dec779-166b-4d45-9432-fff1c82dabff"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "The meeting discussed a proposal to split the engineering key review into four departmental reviews to increase visibility and objectivity, which was agreed upon with a flexible two-month rotation plan. There was also a discussion on R&D MR rates, leading to a decision to simplify the KPIs to track the percentage of total MRs coming from the community. Other topics included addressing a data lag issue, improving defect tracking against SLOs, and prioritizing security work.",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "The meeting discussed a proposal to split the engineering key review into four departmental reviews to increase visibility and objectivity, which was agreed upon with a flexible two-month rotation plan. There was also a discussion on R&D MR rates, leading to a decision to simplify the KPIs to track the percentage of total MRs coming from the community. Other topics included addressing a data lag issue, improving defect tracking against SLOs, and prioritizing security work.",
+            "href": null
+          }
+        ]
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": {
+          "start": "2025-09-01",
+          "end": null,
+          "time_zone": null
+        }
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "• Lily to work with Max to transition to the new KPI tracking system. (Owner: Lily)\n• Steve to update on the replication lag issue in the next infra key review. (Owner: Steve)\n• Mac to figure out how to measure SLO achievements for open bugs. (Owner: Mac)",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "• Lily to work with Max to transition to the new KPI tracking system. (Owner: Lily)\n• Steve to update on the replication lag issue in the next infra key review. (Owner: Steve)\n• Mac to figure out how to measure SLO achievements for open bugs. (Owner: Mac)",
+            "href": null
+          }
+        ]
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "• How to handle the potential computational difficulty in measuring SLO achievements for open bugs?\n• How to ensure the new KPIs effectively reflect security and quality improvements?",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "• How to handle the potential computational difficulty in measuring SLO achievements for open bugs?\n• How to ensure the new KPIs effectively reflect security and quality improvements?",
+            "href": null
+          }
+        ]
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": [
+          {
+            "type": "text",
+            "text": {
+              "content": "NoteGPT_[REC] Key Meeting - Engineering (Public Stream)",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "NoteGPT_[REC] Key Meeting - Engineering (Public Stream)",
+            "href": null
+          }
+        ]
+      }
+    },
+    "url": "https://www.notion.so/NoteGPT_-REC-Key-Meeting-Engineering-Public-Stream-2610089e9046817da65ec92160ab7b6a",
+    "public_url": "https://thirsty-jumper-f31.notion.site/NoteGPT_-REC-Key-Meeting-Engineering-Public-Stream-2610089e9046817da65ec92160ab7b6a"
+  },
+  {
+    "object": "page",
+    "id": "2610089e-9046-80fc-9cd5-e43083834304",
+    "created_time": "2025-09-01T02:41:00.000Z",
+    "last_edited_time": "2025-09-01T02:41:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2610089e904680fc9cd5e43083834304",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2610089e904680fc9cd5e43083834304"
+  },
+  {
+    "object": "page",
+    "id": "2600089e-9046-807f-9003-c979bf87c96f",
+    "created_time": "2025-08-31T19:18:00.000Z",
+    "last_edited_time": "2025-08-31T19:18:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2600089e9046807f9003c979bf87c96f",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2600089e9046807f9003c979bf87c96f"
+  },
+  {
+    "object": "page",
+    "id": "2600089e-9046-801b-ba3a-e6fbbebd970b",
+    "created_time": "2025-08-31T19:15:00.000Z",
+    "last_edited_time": "2025-08-31T19:15:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2600089e9046801bba3ae6fbbebd970b",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2600089e9046801bba3ae6fbbebd970b"
+  },
+  {
+    "object": "page",
+    "id": "2600089e-9046-80bd-9167-f835dae06992",
+    "created_time": "2025-08-31T19:10:00.000Z",
+    "last_edited_time": "2025-08-31T19:10:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2600089e904680bd9167f835dae06992",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2600089e904680bd9167f835dae06992"
+  },
+  {
+    "object": "page",
+    "id": "2600089e-9046-8040-9295-e198c47b18ac",
+    "created_time": "2025-08-31T19:10:00.000Z",
+    "last_edited_time": "2025-08-31T19:10:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2600089e904680409295e198c47b18ac",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2600089e904680409295e198c47b18ac"
+  },
+  {
+    "object": "page",
+    "id": "2600089e-9046-8029-be65-fa584e088537",
+    "created_time": "2025-08-31T19:09:00.000Z",
+    "last_edited_time": "2025-08-31T19:10:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "260d872b-594c-8114-b5fe-000264001aed"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "database_id",
+      "database_id": "2600089e-9046-8007-82ff-c62e47b9da86"
+    },
+    "archived": false,
+    "in_trash": false,
+    "properties": {
+      "Summary": {
+        "id": "QN%7DL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Sent": {
+        "id": "QSSX",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Date": {
+        "id": "o%3BQ_",
+        "type": "date",
+        "date": null
+      },
+      "Action Items": {
+        "id": "rWEb",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Key Questions": {
+        "id": "vg%7CL",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Meeting Name": {
+        "id": "title",
+        "type": "title",
+        "title": []
+      }
+    },
+    "url": "https://www.notion.so/2600089e90468029be65fa584e088537",
+    "public_url": "https://thirsty-jumper-f31.notion.site/2600089e90468029be65fa584e088537"
+  }
+]

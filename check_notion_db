@@ -1,0 +1,146 @@
+import os
+from notion_client import Client
+from dotenv import load_dotenv
+import json
+from datetime import datetime
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Notion client
+notion = Client(auth=os.getenv("NOTION_API_KEY"))
+database_id = os.getenv("NOTION_DATABASE_ID")
+
+def retrieve_database_schema(database_id):
+    """Retrieve and display the database schema"""
+    try:
+        database = notion.databases.retrieve(database_id=database_id)
+        properties = database.get('properties', {})
+        
+        print("=== DATABASE SCHEMA ===")
+        print(f"Database Name: {database.get('title', [{}])[0].get('text', {}).get('content', 'Untitled')}")
+        print(f"Database ID: {database.get('id')}")
+        print("\nProperties in Database:")
+        print("-" * 50)
+        
+        for prop_name, prop_details in properties.items():
+            prop_type = prop_details.get('type', 'unknown')
+            print(f"• {prop_name}: {prop_type}")
+            
+            # Show additional details for specific property types
+            if prop_type == 'select':
+                options = prop_details.get(prop_type, {}).get('options', [])
+                if options:
+                    print(f"  Options: {[opt['name'] for opt in options]}")
+            elif prop_type == 'formula':
+                expression = prop_details.get(prop_type, {}).get('expression', '')
+                print(f"  Expression: {expression}")
+        
+        return properties
+    except Exception as e:
+        print(f"Error retrieving database schema: {e}")
+        return None
+
+def query_database_contents(database_id, page_size=10):
+    """Query and display database contents"""
+    try:
+        response = notion.databases.query(
+            database_id=database_id,
+            page_size=page_size
+        )
+        
+        pages = response.get('results', [])
+        print(f"\n=== DATABASE CONTENTS (First {len(pages)} Items) ===")
+        
+        for i, page in enumerate(pages, 1):
+            print(f"\n--- Item {i} ---")
+            print(f"Page ID: {page.get('id')}")
+            print(f"URL: {page.get('url')}")
+            print(f"Created: {page.get('created_time')}")
+            print(f"Last edited: {page.get('last_edited_time')}")
+            
+            # Display properties
+            props = page.get('properties', {})
+            for prop_name, prop_value in props.items():
+                prop_type = prop_value.get('type', 'unknown')
+                print(f"\n{prop_name} ({prop_type}):")
+                
+                # Extract value based on property type
+                if prop_type == 'title':
+                    title_content = prop_value.get('title', [])
+                    if title_content:
+                        content = title_content[0].get('text', {}).get('content', 'Empty')
+                        print(f"  Value: {content}")
+                    else:
+                        print("  Value: Empty")
+                
+                elif prop_type == 'rich_text':
+                    rich_text_content = prop_value.get('rich_text', [])
+                    if rich_text_content:
+                        content = rich_text_content[0].get('text', {}).get('content', 'Empty')
+                        print(f"  Value: {content}")
+                    else:
+                        print("  Value: Empty")
+                
+                elif prop_type == 'checkbox':
+                    checkbox_value = prop_value.get('checkbox', False)
+                    print(f"  Value: {checkbox_value}")
+                
+                elif prop_type == 'date':
+                    date_value = prop_value.get('date', {})
+                    if date_value:
+                        print(f"  Start: {date_value.get('start')}")
+                        print(f"  End: {date_value.get('end')}")
+                    else:
+                        print("  Value: Not set")
+                
+                elif prop_type == 'select':
+                    select_value = prop_value.get('select', {})
+                    if select_value:
+                        print(f"  Value: {select_value.get('name')}")
+                    else:
+                        print("  Value: Not set")
+                
+                else:
+                    print(f"  Value: {prop_value}")
+            
+            print("-" * 30)
+        
+        return pages
+    except Exception as e:
+        print(f"Error querying database: {e}")
+        return None
+
+def save_to_json(data, filename):
+    """Save data to a JSON file for detailed inspection"""
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"\nFull data saved to {filename} for detailed inspection")
+    except Exception as e:
+        print(f"Error saving to JSON: {e}")
+
+if __name__ == "__main__":
+    if not database_id:
+        print("ERROR: NOTION_DATABASE_ID environment variable is not set.")
+    else:
+        # Retrieve and display schema
+        properties = retrieve_database_schema(database_id)
+        
+        if properties:
+            # Query and display contents
+            pages = query_database_contents(database_id)
+            
+            # Save full response to JSON for detailed analysis
+            if pages:
+                save_to_json(pages, "notion_database_contents.json")
+                
+                # Check for specific properties you expect
+                expected_properties = ["Meeting Name", "Summary", "Action Items", 
+                                      "Key Questions", "Date", "Sent"]
+                print("\n=== PROPERTY VALIDATION ===")
+                for prop in expected_properties:
+                    if prop in properties:
+                        print(f"✓ Found expected property: {prop}")
+                    else:
+                        print(f"✗ Missing expected property: {prop}")
