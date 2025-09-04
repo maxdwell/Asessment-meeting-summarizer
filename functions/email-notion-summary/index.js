@@ -20,6 +20,36 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 20000,
 });
 
+// Helper function to handle multiple rich text objects
+function getRichTextContent(richTextArray) {
+  if (!richTextArray || !Array.isArray(richTextArray)) return "";
+  return richTextArray.map(item => item.text?.content || "").join("");
+}
+
+// Helper function for safe property access with error handling
+function getPropertyContent(page, propertyName, propertyType) {
+  try {
+    const property = page.properties[propertyName];
+    if (!property) {
+      console.warn(`Property ${propertyName} not found on page ${page.id}`);
+      return "";
+    }
+    
+    if (propertyType === 'title') {
+      return property.title?.[0]?.text?.content || "";
+    } else if (propertyType === 'rich_text') {
+      return getRichTextContent(property.rich_text) || "";
+    } else if (propertyType === 'checkbox') {
+      return property.checkbox ? "true" : "false";
+    }
+    
+    return "";
+  } catch (error) {
+    console.error(`Error accessing ${propertyName} on page ${page.id}:`, error);
+    return "";
+  }
+}
+
 // Small helper for safe fetch with timeout
 async function fetchWithTimeout(url, options, timeout = 20000) {
   const controller = new AbortController();
@@ -48,18 +78,22 @@ export default async function (request) {
     const newPages = response.results;
     console.log(`📄 Found ${newPages.length} unsent pages`);
 
+    let processedCount = 0;
+    let skippedCount = 0;
+
     for (const page of newPages) {
-      const meetingName =
-        page.properties["Meeting Name"]?.title?.[0]?.text?.content || "No Title";
-      const summary =
-        page.properties["Summary"]?.rich_text?.[0]?.text?.content ||
-        "No summary provided.";
-      const actionItems =
-        page.properties["Action Items"]?.rich_text?.[0]?.text?.content ||
-        "No action items.";
-      const keyQuestions =
-        page.properties["Key Questions"]?.rich_text?.[0]?.text?.content ||
-        "No key questions.";
+      const meetingName = getPropertyContent(page, "Meeting Name", "title");
+      const summary = getPropertyContent(page, "Summary", "rich_text");
+      
+      // Skip pages with empty meeting names or summaries
+      if (!meetingName.trim() || !summary.trim()) {
+        console.log(`⏭️ Skipping page ${page.id} with empty meeting name or summary`);
+        skippedCount++;
+        continue;
+      }
+
+      const actionItems = getPropertyContent(page, "Action Items", "rich_text") || "No action items.";
+      const keyQuestions = getPropertyContent(page, "Key Questions", "rich_text") || "No key questions.";
 
       console.log(`📧 Preparing email for: ${meetingName}`);
 
@@ -126,6 +160,7 @@ export default async function (request) {
           properties: { Sent: { checkbox: true } },
         });
         console.log(`📝 Marked page ${page.id} as Sent`);
+        processedCount++;
       } catch (err) {
         console.error(`⚠️ Failed to update Notion page ${page.id}:`, err.message);
       }
@@ -133,7 +168,7 @@ export default async function (request) {
 
     return new Response(
       JSON.stringify({
-        message: `✅ Successfully processed ${newPages.length} meeting summaries.`,
+        message: `✅ Successfully processed ${processedCount} meeting summaries. Skipped ${skippedCount} empty pages.`,
       }),
       {
         status: 200,
