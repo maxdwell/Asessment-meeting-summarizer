@@ -9,8 +9,8 @@ const notion = new Client({
 
 // Setup Mailtrap transporter with Nodemailer + timeouts
 const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_SMTP_SERVER || "live.smtp.mailtrap.io",
-  port: parseInt(process.env.MAILTRAP_SMTP_PORT || "587"),
+  host: process.env.MAILTRAP_SMTP_SERVER || "sandbox.smtp.mailtrap.io",
+  port: parseInt(process.env.MAILTRAP_SMTP_PORT || "2525"),
   auth: {
     user: process.env.MAILTRAP_SMTP_USERNAME,
     pass: process.env.MAILTRAP_SMTP_PASSWORD,
