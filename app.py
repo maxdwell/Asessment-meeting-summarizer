@@ -202,9 +202,9 @@ def summarize():
             parent={"database_id": notion_database_id},
             properties={
                 "Meeting Name": {"title": [{"text": {"content": meeting_name}}]},
-                "Summary": {"rich_text": [{"text": {"content": summary_str}}]},
-                "Action Items": {"rich_text": [{"text": {"content": action_items_str}}]},
-                "Key Questions": {"rich_text": [{"text": {"content": key_questions_str}}]},
+                "Summary": {"text": [{"text": {"content": summary_str}}]},
+                "Action Items": {"text": [{"text": {"content": action_items_str}}]},
+                "Key Questions": {"text": [{"text": {"content": key_questions_str}}]},
                 "Date": {"date": {"start": datetime.now().isoformat()[:10]}},
                 "Sent": {"checkbox": False},
             },
@@ -269,9 +269,9 @@ def email_notion_summary():
             
             props = page.get("properties", {})
             meeting_name = safe_get_text(props.get("Meeting Name", {}), "title", page_id, "Meeting Name") or "No Title"
-            summary = safe_get_text(props.get("Summary", {}), "rich_text", page_id, "Summary") or "No summary"
-            action_items = safe_get_text(props.get("Action Items", {}), "rich_text", page_id, "Action Items") or "No action items"
-            key_questions = safe_get_text(props.get("Key Questions", {}), "rich_text", page_id, "Key Questions") or "No key questions"
+            summary = safe_get_text(props.get("Summary", {}), "text", page_id, "Summary") or "No summary"
+            action_items = safe_get_text(props.get("Action Items", {}), "text", page_id, "Action Items") or "No action items"
+            key_questions = safe_get_text(props.get("Key Questions", {}), "text", page_id, "Key Questions") or "No key questions"
             notion_url = page.get("url", "No URL available")
 
             app.logger.info(f"Processing page: {page_id} ({notion_url})")
